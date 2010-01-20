@@ -2,14 +2,18 @@
 
 (defvar *connection-spec* '("localhost" "blog_development" "root" ""))
 (setq clsql-sys:*default-database-type* :mysql)
-(defvar *after-connect-sql* '("set character_set_client='utf8'"
-                              "set character_set_connection='utf8'"
-                              "set character_set_results='utf8'"))
+
+(defgeneric after-connect (database-type)
+  (:method ((database-type (eql :mysql)))
+    (mapc #'clsql-sys:execute-command
+          '("set character_set_client='utf8'"
+            "set character_set_connection='utf8'"
+            "set character_set_results='utf8'"))))
 
 (defun establish-connection (&optional (connection-spec *connection-spec*)
                              (database-type clsql-sys:*default-database-type*))
   (clsql-sys:connect connection-spec :database-type database-type)
-  (mapc #'clsql-sys:execute-command *after-connect-sql*))
+  (after-connect database-type))
 ;; (establish-connection)
 
 
@@ -39,9 +43,6 @@
 
 (defclass base ()
   ((table-name :initarg :table-name :accessor table-name-of)))
-
-(defmethod set-values ((self base) values colums)
-
 
 (defmacro def-record (name)
   (let* ((table-name (pluralize name))
