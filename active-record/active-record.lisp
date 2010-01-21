@@ -12,10 +12,10 @@
 
 (defun establish-connection (&optional (connection-spec *connection-spec*)
                              (database-type clsql-sys:*default-database-type*))
-  (clsql-sys:connect connection-spec :database-type database-type)
+  (clsql-sys:connect connection-spec
+                     :database-type database-type
+                     :if-exists :old)
   (after-connect database-type))
-;; (establish-connection)
-
 
 (defgeneric pluralize (x)
   (:method ((x string))
