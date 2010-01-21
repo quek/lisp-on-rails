@@ -42,25 +42,71 @@
 ;;(clsql-sys:list-attribute-types "posts")
 
 (defclass base ()
-  ((table-name :initarg :table-name :accessor table-name-of)))
+  ((%table-name :initarg :%table-name :allocation :class :accessor %table-name-of)
+   (%attributes :initarg :%attributes :allocation :class :accessor %attributes-of)
+   (%slots :initarg :%slots :allocation :class :accessor %slots-of)
+   (%accessors :initarg :%accessors :allocation :class :accessor %accessors-of)
+   (%new-record :initarg :%new-record  :initform t :accessor %new-record-p)))
+
+(defgeneric coerce-sql (x)
+  (:method ((x string))
+    (with-output-to-string (out)
+      (write-char #\' out)
+      (map nil (lambda (x)
+                 (if (char= x #\')
+                     (write-string "''" out)
+                     (write-char x out)))
+           x)
+      (write-char #\' out)))
+  (:method ((x null))
+    "null")
+  (:method ((x symbol))
+    (substitute #\_ #\- (string-downcase (symbol-name x))))
+  (:method (x)
+    x))
+
+(defgeneric save (record)
+  (:method ((self base))
+    (let ((slots (remove-if (lambda (x) (equalp "ID" (symbol-name x))) (%slots-of self))))
+      (if (%new-record-p self)
+          (clsql-sys:execute-command
+           (format nil "insert into ~a (~{~a~^,~}) values (~{~a~^,~})"
+                   (%table-name-of self)
+                   (mapcar #'coerce-sql slots)
+                   (mapcar (lambda (x) (coerce-sql (slot-value self x)))
+                           slots)))
+          ;;update
+          ))))
 
 (defmacro def-record (name)
   (let* ((table-name (pluralize name))
          (attributes (clsql-sys:list-attribute-types table-name)))
+    (loop for (x) in attributes do (nsubstitute #\- #\_ x))
     `(progn
-       (defclass ,(sym table-name) (base)
+       (defclass ,name (base)
          (,@(loop for (column-name type precision scale nullable) in attributes
                   collect (list (sym column-name)
                                 :initarg (key-sym column-name)
                                 :initform nil
-                                :accessor (sym column-name '-OF))))
+                                :accessor (sym column-name '-of))))
          (:default-initargs
-             :table-name ,table-name))
-       (defun ,(sym table-name '-all) ()
+             :%table-name ,table-name
+           :%attributes ',attributes
+           :%slots ',(mapcar #'(lambda (x) (sym (car x))) attributes)
+           :%accessors ',(mapcar #'(lambda (x) (sym (car x) '-of)) attributes)))
+
+       (defmethod print-object ((self ,name) stream)
+         (print-unreadable-object (self stream :type t :identity t)
+           (format stream "~@{~a: ~s~^, ~}"
+                   ,@(loop for (column-name) in attributes
+                           append (list column-name `(,(sym column-name '-of) self))))))
+
+       (defun ,(sym name '-all) ()
          (loop for rs in (clsql-sys:query ,(format nil "select * from ~a" table-name))
-               collect (make-instance ',(sym table-name)
+               collect (make-instance ',name
                             ,@(loop for (column-name) in attributes
                                     for i from 0
                                     append (list (key-sym column-name) `(nth ,i rs)))))))))
 ;; (def-record post)
-;; (posts-all)
+;; (save (make-instance 'post :name "名前" :title "タイトル" :content "内容"))
+;; (post-all)

@@ -3,4 +3,5 @@
   (:export #:*connection-spec*
            #:establish-connection
            #:base
+           #:save
            #:def-record))

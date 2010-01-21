@@ -7,12 +7,13 @@
 (in-suite active-record-test)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (setf *connection-spec* '("localhost" "blog_development" "root" ""))
+  (setf *connection-spec* '("localhost" "blog_test" "root" ""))
   (setq clsql-sys:*default-database-type* :mysql)
   (establish-connection))
 
 (def-record post)
 
 (deftest test-all ()
-  (is (posts-all)))
+  (make-instance 'post :name "名前" :title "タイトル" :content "内容")
+  (is (post-all)))
 
