@@ -14,6 +14,16 @@
 (def-record post)
 
 (deftest test-all ()
-  (make-instance 'post :name "名前" :title "タイトル" :content "内容")
-  (is (post-all)))
+  (mapc #'destroy (all post))
+  (let ((a (make-instance 'post :name "名前" :title "タイトル" :content "内容")))
+    (save a)
+    (let ((all (all post)))
+      (is (= 1 (length all)))
+      (let ((b (car all)))
+        (is (string= "名前" (name-of b)))
+        (is (string= "タイトル" (title-of b)))
+        (is (string= "内容" (content-of b)))))))
 
+
+
+;;(active-record-test)

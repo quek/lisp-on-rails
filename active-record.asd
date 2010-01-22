@@ -9,7 +9,7 @@
                         :serial t
                         :components ((:file "packages")
                                      (:file "active-record"))))
-  :depends-on (clsql))
+  :depends-on (clsql anaphora))
 
 (defmethod perform ((o test-op) (c (eql (asdf:find-system :active-record))))
   (operate 'load-op :active-record-test)
