@@ -17,9 +17,41 @@
                      :if-exists :old)
   (after-connect database-type))
 
+;from MIT CADR
+;Return the plural of the word supplied as argument.
+;Attempts to preserve the case-pattern of the word.
+(defun string-pluralize (string)
+  (let* (flush add
+	 (last-char-raw (aref string (1- (length string))))
+	 (last-char (char-upcase last-char-raw))
+	 (last-char-lc-flag (< (char-code  last-char) (CHAR-CODE last-char-raw)))
+	 (penult-char (char-upcase (if (> (length string) 1)
+				       (char string (- (length string) 2))
+				       (code-char 0))))
+	 (last-3 (subseq string (max 0 (- (length string) 3)))))
+    (cond ((and (char-equal last-char #\Y)
+		(not (member penult-char '(#\A #\E #\I #\O #\U))))
+	   (setq flush 1 add "ies"))
+	  ((or (string-equal string "ox") (string-equal string "vax"))
+	   (setq add "en"))
+	  ((or (and (char= last-char #\H)
+		    (member penult-char '(#\C #\S)))
+	       (member last-char '(#\S #\Z #\X)))
+	   (setq add "es"))
+	  ((string-equal last-3 "man")
+	   (setq flush 2 add "en"))
+	  ((string-equal last-3 "ife")
+	   (setq flush 2 add "ves"))
+	  (t (setq add "s")))
+    (and flush (setq string (subseq string 0 (- (length string) flush))))
+    (cond (add (concatenate 'string string
+                            (cond (last-char-lc-flag add)
+                                  (t (string-upcase add)))))
+	  (t string))))
+
 (defgeneric pluralize (x)
   (:method ((x string))
-    (concatenate 'string x "s"))
+    (string-pluralize x))
   (:method (x)
     (pluralize (string-downcase (string x)))))
 
