@@ -68,7 +68,14 @@
     (loop for i in args
           do (write-string (string-downcase (symbol-name i)) out))))
 
-;;(clsql-sys:list-attribute-types "posts")
+(defun sql->sym (name &key (package *package* packagep) (downcase nil))
+  (flet ((normalize-case (str)
+           (funcall (if downcase #'string-downcase #'string-upcase) 
+                    str))
+         (subst-hyphen (x)
+           (substitute #\- #\_ x)))
+    (intern (subst-hyphen (normalize-case (string name)))
+            (if packagep package *package*))))
 
 (defclass column ()
   ((name :initarg :name :accessor column-name)
@@ -167,11 +174,9 @@
          (attributes (clsql-sys:list-attribute-types table-name))
          (columns (loop for (column-name type precision scale nullable) in attributes
                         collect (make-instance 'column
-                                     :name (intern (string-upcase
-                                                    (substitute #\- #\_ column-name))
-                                                   :active-record)
+                                     :name (sql->sym column-name :package :active-record)
                                      :name-string column-name
-                                     :key (key-sym (substitute #\- #\_ column-name))
+                                     :key (sql->sym column-name :package :keyword)
                                      :type type
                                      :precision precision
                                      :scale scale
@@ -190,11 +195,9 @@
        (setf (%columns-of ,name)
              (loop for (column-name type precision scale nullable) in ',attributes
                    collect (make-instance 'column
-                                :name (intern (string-upcase
-                                               (substitute #\- #\_ column-name))
-                                              :active-record)
+                                :name (sql->sym column-name :package :active-record)
                                 :name-string column-name
-                                :key (key-sym (substitute #\- #\_ column-name))
+                                :key (sql->sym column-name :package :keyword)
                                 :type type
                                 :precision precision
                                 :scale scale
