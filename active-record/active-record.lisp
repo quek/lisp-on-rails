@@ -48,7 +48,7 @@
                 ((string-equal last-3 "ife")
                  (values  2 "ves"))
                 (t (values nil "s"))))
-    (when flush 
+    (when flush
       (setq string (subseq string 0 (- len flush))))
     (concatenate 'string string add)))
 
@@ -107,6 +107,22 @@
 (defmethod %columns-of ((x base))
   (%columns-of (class-of x)))
 
+(defgeneric %value-of (record column)
+  (:method (record (column symbol))
+    (%value-of record (symbol-name column)))
+  (:method (record (column string))
+    (%value-of record (find-column (class-of record) column)))
+  (:method (record (column column))
+    (slot-value record (column-name column))))
+
+(defgeneric (setf %value-of) (value record column)
+  (:method (value record (column symbol))
+    (setf (%value-of record (symbol-name column)) value))
+  (:method (value record (column string))
+    (setf (%value-of record (find-column (class-of record) column)) value))
+  (:method (value record (column column))
+    (setf (slot-value record (column-name column)) value)))
+
 (defgeneric coerce-sql (x)
   (:method ((x string))
     (with-output-to-string (out)
@@ -121,20 +137,35 @@
     "null")
   (:method ((x symbol))
     (substitute #\_ #\- (string-downcase (symbol-name x))))
+  (:method ((x clsql-sys:wall-time))
+    (clsql-sys::db-timestring x))
   (:method (x)
     x))
 
 (defmethod make-instance-from-row (class row fields)
-  (let ((instance (make-instance class))
-        (columns (%columns-of class)))
+  (let ((instance (make-instance class)))
     (loop for col in fields
           for i from 0
-          for x = (find col columns :key #'column-name-string :test #'string=)
+          for x = (find-column class col)
           if x
-            do (setf (slot-value instance (column-name x)) (nth i row)))
+            do (setf (%value-of instance x) (nth i row)))
     instance))
 
-;; find は CL にあるので select にるす
+(defgeneric find-column (active-record-class x)
+  (:method ((class active-record-class) (x symbol))
+    (find-column class (symbol-name x)))
+  (:method ((class active-record-class) (x string))
+    (find (substitute #\_ #\- (string-downcase x))
+          (%columns-of class) :key #'column-name-string
+          :test #'string=)))
+
+(defgeneric columns-expect-id (active-record-class)
+  (:method ((class active-record-class))
+    (loop for x in (%columns-of class)
+          unless (string= "id" (column-name-string x))
+            collect x)))
+
+;; find は CL にあるので select にする
 (defmethod select ((class active-record-class) id)
   (multiple-value-bind (rows columns)
       (clsql-sys:query (format nil "select * from ~a where id = ~d"
@@ -150,7 +181,7 @@
 
 (defgeneric save (record)
   (:method ((self base))
-    (let ((slots (mapcar #'column-name  (remove 'id (%columns-of (class-of self))))))
+    (let ((slots (mapcar #'column-name (columns-expect-id (class-of self)))))
       (if (%new-record-p self)
           (progn
             (clsql-sys:execute-command
@@ -163,18 +194,28 @@
           ;; TODO update
           ))))
 
+(defmethod save :before (record)
+  (let* ((class (class-of record))
+         (created-at (find-column class :created-at))
+         (updated-at (find-column class :updated-at))
+         (time (clsql-sys::get-time)))
+    (when (and created-at (null (%value-of record created-at)))
+      (setf (%value-of record created-at) time))
+    (when updated-at
+      (setf (%value-of record updated-at) time))))
+
 (defgeneric destroy (record)
   (:method ((self base))
     (clsql-sys:execute-command (format nil "delete from ~a where id = ~d"
                                        (%table-name-of (class-of self))
-                                       (slot-value self 'id)))))
+                                       (%value-of self :id)))))
 
 (defmacro def-record (name)
   (let* ((table-name (pluralize name))
          (attributes (clsql-sys:list-attribute-types table-name))
          (columns (loop for (column-name type precision scale nullable) in attributes
                         collect (make-instance 'column
-                                     :name (sql->sym column-name :package :active-record)
+                                     :name (sql->sym column-name :package *package*)
                                      :name-string column-name
                                      :key (sql->sym column-name :package :keyword)
                                      :type type
@@ -195,7 +236,7 @@
        (setf (%columns-of ,name)
              (loop for (column-name type precision scale nullable) in ',attributes
                    collect (make-instance 'column
-                                :name (sql->sym column-name :package :active-record)
+                                :name (sql->sym column-name :package *package*)
                                 :name-string column-name
                                 :key (sql->sym column-name :package :keyword)
                                 :type type

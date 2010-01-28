@@ -20,6 +20,7 @@
     (let ((all (all post)))
       (is (= 1 (length all)))
       (let ((b (car all)))
+        (describe b)
         (is (string= "名前" (name-of b)))
         (is (string= "タイトル" (title-of b)))
         (is (string= "内容" (content-of b)))))))
