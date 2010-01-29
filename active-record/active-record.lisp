@@ -90,6 +90,10 @@
   ((%table-name :initarg :%table-name :accessor %table-name-of)
    (%columns :initarg :%columns :accessor %columns-of)))
 
+(defmethod print-object ((class active-record-class) stream)
+  (print-unreadable-object (class stream :type t)
+    (format stream "~{~a~^ ~}" (mapcar #'column-name (%columns-of class)))))
+
 (defmethod sb-mop:validate-superclass ((class active-record-class) (super standard-class))
   t)
 
@@ -210,7 +214,7 @@
                                        (%table-name-of (class-of self))
                                        (%value-of self :id)))))
 
-(defmacro def-record (name)
+(defmacro def-record (name &rest options)
   (let* ((table-name (pluralize name))
          (attributes (clsql-sys:list-attribute-types table-name))
          (columns (loop for (column-name type precision scale nullable) in attributes
