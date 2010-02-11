@@ -92,13 +92,107 @@
 
 (defmethod print-object ((class active-record-class) stream)
   (print-unreadable-object (class stream :type t)
-    (format stream "~{~a~^ ~}" (mapcar #'column-name (%columns-of class)))))
+    (format stream "~a ~{~a~^ ~}" (class-name class)
+            (mapcar #'column-name (%columns-of class)))))
 
-(defmethod sb-mop:validate-superclass ((class active-record-class) (super standard-class))
+(defmethod c2mop:validate-superclass ((class active-record-class) (super standard-class))
   t)
 
-(defmethod sb-mop:validate-superclass ((class standard-class) (super active-record-class))
+(defmethod c2mop:validate-superclass ((class standard-class) (super active-record-class))
   nil)
+
+
+
+
+
+
+(defclass ar-slot-mixin ()
+  ((column :accessor slot-definition-column
+           :initarg :column
+           :initform nil)))
+
+(defclass ar-direct-slot-definition
+      (ar-slot-mixin
+       c2mop:standard-direct-slot-definition)
+  ())
+
+(defclass ar-effective-slot-definition
+      (ar-slot-mixin
+       c2mop:standard-effective-slot-definition)
+  ())
+
+(defclass ar-belongs-to-slot-mixin ()
+  ((belongs-to :initarg :belongs-to
+               :initform nil
+               :accessor belongs-to)
+   (foreign-slotname :initarg :foreign-slotname
+                     :initform nil
+                     :accessor foreign-slotname)))
+
+(defclass ar-belongs-to-direct-slot-definition (ar-direct-slot-definition
+                                                ar-belongs-to-slot-mixin)
+  ())
+
+(defclass ar-belongs-to-effective-slot-definition (ar-effective-slot-definition
+                                                   ar-belongs-to-slot-mixin)
+  ())
+
+(defmethod c2mop:direct-slot-definition-class ((class active-record-class)
+                                               &rest initargs)
+  (find-class
+   (cond ((getf initargs :belongs-to)
+          'ar-belongs-to-direct-slot-definition)
+         (t 'ar-direct-slot-definition))))
+
+;; compute-effective-slot-definition-initargs がポータブルではないので
+(defvar *effective-slot-definition-class* nil)
+
+(defmethod c2mop:effective-slot-definition-class ((class active-record-class)
+                                                  &rest initargs)
+  (declare (ignore initargs))
+  (find-class
+   (or *effective-slot-definition-class*
+       'ar-effective-slot-definition)))
+
+(defmethod c2mop:compute-effective-slot-definition
+  ((class active-record-class)
+   slot-name
+   direct-slot-definitions)
+  (let ((dslotd (car direct-slot-definitions)))
+    (typecase dslotd
+      (ar-belongs-to-direct-slot-definition
+         (setf *effective-slot-definition-class*
+               'ar-belongs-to-effective-slot-definition)
+         (let ((esd (call-next-method)))
+           (setf (belongs-to esd) (belongs-to dslotd))
+           (setf (foreign-slotname esd) (foreign-slotname dslotd))
+           esd))
+      (t (setf *effective-slot-definition-class* nil)
+         (call-next-method)))))
+
+(defmethod c2mop:slot-value-using-class
+  ((class active-record-class)
+   instance
+   (slot-def ar-belongs-to-effective-slot-definition))
+  (aif (call-next-method)
+       it
+       (setf (slot-value instance (belongs-to slot-def))
+             (select (find-class (belongs-to slot-def))
+                     (slot-value instance (foreign-slotname slot-def))))))
+
+(defmethod (setf c2mop:slot-value-using-class) :after
+           (new-value
+            (class active-record-class)
+            instance
+            (slot-def ar-belongs-to-effective-slot-definition))
+  (setf (slot-value instance (foreign-slotname slot-def))
+        (and new-value (%value-of new-value :id))))
+
+
+
+
+
+
 
 (defparameter base
   (defclass base ()
@@ -194,9 +288,12 @@
                      (mapcar #'coerce-sql slots)
                      (mapcar (lambda (x) (coerce-sql (slot-value self x)))
                              slots)))
-            (setf (%new-record-p self) t))
+            (setf (%new-record-p self) t
+                  (%value-of self :id)
+                  (caar (clsql-sys:query "select last_insert_id()"))))
           ;; TODO update
-          ))))
+          ))
+    self))
 
 (defmethod save :before (record)
   (let* ((class (class-of record))
@@ -233,7 +330,16 @@
                     collect (list (column-name x)
                                   :initarg (column-key x)
                                   :initform nil
-                                  :accessor (sym (column-name x) '-of))))
+                                  :accessor (sym (column-name x) '-of)))
+            ;; belongs-to
+            ,@(loop for (association table) in options
+                    if (eq :belongs-to association)
+                      collect (list table
+                                    :initform nil
+                                    :belongs-to table
+                                    :foreign-slotname (sym table '-id)
+                                    :accessor (sym table '-of)))
+            )
            (:metaclass active-record-class)))
 
        (setf (%table-name-of ,name) ,table-name)
@@ -256,7 +362,7 @@
                                         `(,(sym (column-name x)'-of) self)))))))))
 
 ;; (def-record post)
-;; (def-record comment)
+;; (def-record comment (:belongs-to post))
 ;; (select post 1)
 ;; (save (make-instance 'post :name "名前" :title "タイトル" :content "内容"))
-;; (post-all)q
+;; (post-all)
