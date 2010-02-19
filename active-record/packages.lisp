@@ -1,6 +1,8 @@
 (defpackage :active-record
     (:use :common-lisp :anaphora)
-  (:export #:*connection-spec*
+  (:export #:str
+           #:key
+           #:*connection-spec*
            #:establish-connection
            #:base
            #:save

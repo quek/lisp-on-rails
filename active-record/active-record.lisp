@@ -52,6 +52,12 @@
       (setq string (subseq string 0 (- len flush))))
     (concatenate 'string string add)))
 
+(defgeneric singularize (x)
+  (:method (x)
+    (singularize (string-downcase (string x))))
+  (:method ((string string))
+    (subseq string 0 (1- (length string)))))
+
 (defun sym (&rest args)
   (intern
    (with-output-to-string (out)
@@ -66,7 +72,7 @@
 (defun str (&rest args)
   (with-output-to-string (out)
     (loop for i in args
-          do (write-string (string-downcase (symbol-name i)) out))))
+          do (write-string (string-downcase (princ-to-string i)) out))))
 
 (defun sql->sym (name &key (package *package* packagep) (downcase nil))
   (flet ((normalize-case (str)
@@ -137,11 +143,35 @@
                                                    ar-belongs-to-slot-mixin)
   ())
 
+(defclass ar-has-many-slot-mixin ()
+  ((has-many :initarg :has-many
+             :initform nil
+             :accessor has-many)
+   (class-symbol :initarg :class-symbol
+                 :initform nil
+                 :accessor class-symbol)))
+
+(defmethod initialize-instance :after ((self ar-has-many-slot-mixin) &rest args)
+  (declare (ignore args))
+  (unless (class-symbol self)
+    (setf (class-symbol self)
+          (sym (singularize (has-many self))))))
+
+(defclass ar-has-many-direct-slot-definition (ar-direct-slot-definition
+                                              ar-has-many-slot-mixin)
+  ())
+
+(defclass ar-has-many-effective-slot-definition (ar-effective-slot-definition
+                                                 ar-has-many-slot-mixin)
+  ())
+
 (defmethod c2mop:direct-slot-definition-class ((class active-record-class)
                                                &rest initargs)
   (find-class
    (cond ((getf initargs :belongs-to)
           'ar-belongs-to-direct-slot-definition)
+         ((getf initargs :has-many)
+          'ar-has-many-direct-slot-definition)
          (t 'ar-direct-slot-definition))))
 
 ;; compute-effective-slot-definition-initargs がポータブルではないので
@@ -161,11 +191,18 @@
   (let ((dslotd (car direct-slot-definitions)))
     (typecase dslotd
       (ar-belongs-to-direct-slot-definition
-         (setf *effective-slot-definition-class*
-               'ar-belongs-to-effective-slot-definition)
-         (let ((esd (call-next-method)))
+         (let* ((*effective-slot-definition-class*
+                 'ar-belongs-to-effective-slot-definition)
+                (esd (call-next-method)))
            (setf (belongs-to esd) (belongs-to dslotd))
            (setf (foreign-slotname esd) (foreign-slotname dslotd))
+           esd))
+      (ar-has-many-direct-slot-definition
+         (let* ((*effective-slot-definition-class*
+                 'ar-has-many-effective-slot-definition)
+                (esd (call-next-method)))
+           (setf (has-many esd) (has-many dslotd)
+                 (class-symbol esd) (class-symbol dslotd))
            esd))
       (t (setf *effective-slot-definition-class* nil)
          (call-next-method)))))
@@ -188,8 +225,26 @@
   (setf (slot-value instance (foreign-slotname slot-def))
         (and new-value (%value-of new-value :id))))
 
+(defmethod c2mop:slot-value-using-class
+  ((class active-record-class)
+   instance
+   (slot-def ar-has-many-effective-slot-definition))
+  (aif (call-next-method)
+       it
+       (setf (slot-value instance (has-many slot-def))
+             (all (find-class (class-symbol slot-def))
+                  :conditons (list (key-sym (class-name class) '-id)
+                                   (%value-of instance :id))))))
 
-
+(defmethod (setf c2mop:slot-value-using-class) :after
+           (new-value
+            (class active-record-class)
+            instance
+            (slot-def ar-has-many-effective-slot-definition))
+  (loop with id = (%value-of instance :id)
+        with column = (str (class-name class) "-id")
+        for x in new-value
+        do (setf (%value-of x column) id)))
 
 
 
@@ -271,11 +326,16 @@
     (when rows
       (make-instance-from-row class (car rows) columns))))
 
-(defmethod all ((class active-record-class))
-  (multiple-value-bind (rows columns)
-      (clsql-sys:query (format nil "select * from ~a" (%table-name-of class)))
-    (loop for i in rows
-          collect (make-instance-from-row class i columns))))
+(defgeneric all (class &key &allow-other-keys)
+  (:method ((class active-record-class) &key conditions)
+    (multiple-value-bind (rows columns)
+        (clsql-sys:query
+         (with-output-to-string (out)
+           (format out "select * from ~a" (%table-name-of class))
+           (when conditions
+             (format out " where ~{~a = ~a~^ and ~}" conditions))))
+      (loop for i in rows
+            collect (make-instance-from-row class i columns)))))
 
 (defgeneric save (record)
   (:method ((self base))
@@ -331,13 +391,20 @@
                                   :initarg (column-key x)
                                   :initform nil
                                   :accessor (sym (column-name x) '-of)))
-            ;; belongs-to
             ,@(loop for (association table) in options
+                    ;; belongs-to
                     if (eq :belongs-to association)
                       collect (list table
                                     :initform nil
                                     :belongs-to table
                                     :foreign-slotname (sym table '-id)
+                                    :accessor (sym table '-of))
+                    ;; has-many
+                    if (eq :has-many association)
+                      collect (list table
+                                    :initform nil
+                                    :has-many table
+                                    :class-symbol (sym (singularize table))
                                     :accessor (sym table '-of)))
             )
            (:metaclass active-record-class)))
@@ -361,7 +428,7 @@
                            append (list `',(column-name x)
                                         `(,(sym (column-name x)'-of) self)))))))))
 
-;; (def-record post)
+;; (def-record post (:has-many comments))
 ;; (def-record comment (:belongs-to post))
 ;; (select post 1)
 ;; (save (make-instance 'post :name "名前" :title "タイトル" :content "内容"))
