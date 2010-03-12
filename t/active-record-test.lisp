@@ -11,10 +11,42 @@
   (setq clsql-sys:*default-database-type* :mysql)
   (establish-connection))
 
+#|
+show create table comments;
+CREATE TABLE `comments` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `commenter` varchar(255),
+  `body` text,
+  `post_id` int(11),
+  `created_at` datetime,
+  `updated_at` datetime,
+  PRIMARY KEY (`id`)
+);
+CREATE TABLE `posts` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255),
+  `title` varchar(255),
+  `content` text,
+  `created_at` datetime,
+  `updated_at` datetime,
+  PRIMARY KEY (`id`)
+);
+CREATE TABLE `post_infos` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `post_id` int(11),
+  `info` varchar(255),
+  `created_at` datetime,
+  `updated_at` datetime,
+  PRIMARY KEY (`id`)
+);
+|#
 (def-record comment
-    (:belongs-to post))
+  (:belongs-to post))
 (def-record post
-    (:has-many comments))
+  (:has-many comments)
+  (:has-one post-info))
+(def-record post-info
+  (:belongs-to post))
 
 (deftest test-all ()
   (mapc #'destroy (all post))
@@ -66,4 +98,15 @@
                (is (string= (str "quek" i) (commenter-of comment)))
                (is (string= (str "コメント" i) (body-of comment)))))))
 
+(deftest test-has-one ()
+  (mapc #'destroy (append (all post) (all comment) (all post-info)))
+  (let ((post (save (make-instance 'post :name "名前"
+                                   :title "タイトル"
+                                   :content "内容")))
+        (post-info (make-instance 'post-info :info "まみむめも♪")))
+    (setf (post-id-of post-info) (id-of post))
+    (save post-info))
+  (let* ((post (car (all post)))
+         (post-info (post-info-of post)))
+    (is (string= "まみむめも♪" (info-of post-info)))))
 ;;(active-record-test)

@@ -143,6 +143,27 @@
                                                    ar-belongs-to-slot-mixin)
   ())
 
+(defclass ar-has-one-slot-mixin ()
+  ((has-one :initarg :has-one
+            :initform nil
+            :accessor has-one)
+   (class-symbol :initarg :class-symbol
+                 :initform nil
+                 :accessor class-symbol)))
+
+(defmethod initialize-instance :after ((self ar-has-one-slot-mixin) &rest args)
+  (declare (ignore args))
+  (unless (class-symbol self)
+    (setf (class-symbol self) (has-one self))))
+
+(defclass ar-has-one-direct-slot-definition (ar-direct-slot-definition
+                                             ar-has-one-slot-mixin)
+  ())
+
+(defclass ar-has-one-effective-slot-definition (ar-effective-slot-definition
+                                                ar-has-one-slot-mixin)
+  ())
+
 (defclass ar-has-many-slot-mixin ()
   ((has-many :initarg :has-many
              :initform nil
@@ -172,6 +193,8 @@
           'ar-belongs-to-direct-slot-definition)
          ((getf initargs :has-many)
           'ar-has-many-direct-slot-definition)
+         ((getf initargs :has-one)
+          'ar-has-one-direct-slot-definition)
          (t 'ar-direct-slot-definition))))
 
 ;; compute-effective-slot-definition-initargs がポータブルではないので
@@ -202,6 +225,13 @@
                  'ar-has-many-effective-slot-definition)
                 (esd (call-next-method)))
            (setf (has-many esd) (has-many dslotd)
+                 (class-symbol esd) (class-symbol dslotd))
+           esd))
+      (ar-has-one-direct-slot-definition
+         (let* ((*effective-slot-definition-class*
+                 'ar-has-one-effective-slot-definition)
+                (esd (call-next-method)))
+           (setf (has-one esd) (has-one dslotd)
                  (class-symbol esd) (class-symbol dslotd))
            esd))
       (t (setf *effective-slot-definition-class* nil)
@@ -245,6 +275,26 @@
         with column = (str (class-name class) "-id")
         for x in new-value
         do (setf (%value-of x column) id)))
+
+(defmethod c2mop:slot-value-using-class
+  ((class active-record-class)
+   instance
+   (slot-def ar-has-one-effective-slot-definition))
+  (aif (call-next-method)
+       it
+       (setf (slot-value instance (has-one slot-def))
+             (car (all (find-class (class-symbol slot-def))
+                       :conditons (list (key-sym (class-name class) '-id)
+                                        (%value-of instance :id)))))))
+
+(defmethod (setf c2mop:slot-value-using-class) :after
+           (new-value
+            (class active-record-class)
+            instance
+            (slot-def ar-has-one-effective-slot-definition))
+   (when new-value
+     (setf (%value-of new-value (str (class-name class) "-id"))
+           (%value-of instance :id))))
 
 
 
@@ -372,7 +422,7 @@
                                        (%value-of self :id)))))
 
 (defmacro def-record (name &rest options)
-  (let* ((table-name (pluralize name))
+  (let* ((table-name (substitute #\_ #\- (pluralize name)))
          (attributes (clsql-sys:list-attribute-types table-name))
          (columns (loop for (column-name type precision scale nullable) in attributes
                         collect (make-instance 'column
@@ -405,8 +455,15 @@
                                     :initform nil
                                     :has-many table
                                     :class-symbol (sym (singularize table))
-                                    :accessor (sym table '-of)))
-            )
+                                    :accessor (sym table '-of))
+                    ;; has-one
+                    if (eq :has-one association)
+                      collect (list table
+                                    :initform nil
+                                    :has-one table
+                                    :class-symbol table
+                                    :accessor (sym table '-of))
+                    ))
            (:metaclass active-record-class)))
 
        (setf (%table-name-of ,name) ,table-name)
