@@ -118,13 +118,11 @@
            :initform nil)))
 
 (defclass ar-direct-slot-definition
-      (ar-slot-mixin
-       c2mop:standard-direct-slot-definition)
+      (ar-slot-mixin c2mop:standard-direct-slot-definition)
   ())
 
 (defclass ar-effective-slot-definition
-      (ar-slot-mixin
-       c2mop:standard-effective-slot-definition)
+      (ar-slot-mixin c2mop:standard-effective-slot-definition)
   ())
 
 (defclass ar-belongs-to-slot-mixin ()
@@ -369,7 +367,11 @@
             collect x)))
 
 ;; find は CL にあるので select にする
-(defmethod select ((class active-record-class) id)
+(defgeneric select (class id &rest args))
+(defmethod select ((class symbol) id &rest args)
+  (apply #'select (find-class class) id args))
+(defmethod select ((class active-record-class) id &rest args)
+  (declare (ignore args))
   (multiple-value-bind (rows columns)
       (clsql-sys:query (format nil "select * from ~a where id = ~d"
                                (%table-name-of class) id))
@@ -402,6 +404,13 @@
                   (%value-of self :id)
                   (caar (clsql-sys:query "select last_insert_id()"))))
           ;; TODO update
+          (clsql-sys:execute-command
+           (format nil "update ~a set ~{~a = ~a~^,~} where id = ~a"
+                   (%table-name-of self)
+                   (loop for x in slots
+                         append (list (coerce-sql x)
+                                      (coerce-sql (slot-value self x))))
+                   (%value-of self :id)))
           ))
     self))
 

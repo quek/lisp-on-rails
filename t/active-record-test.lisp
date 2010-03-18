@@ -109,4 +109,14 @@ CREATE TABLE `post_infos` (
   (let* ((post (car (all post)))
          (post-info (post-info-of post)))
     (is (string= "まみむめも♪" (info-of post-info)))))
+
+(deftest test-update ()
+  (let ((post (save (make-instance 'post :name "名前"
+                                   :title "タイトル"
+                                   :content "内容"))))
+    (setf (name-of post) "更新")
+    (save post)
+    (let ((post (select 'post (id-of post))))
+      (is (string= "更新" (name-of post))))))
+
 ;;(active-record-test)
