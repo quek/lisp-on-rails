@@ -141,48 +141,33 @@
                                                    ar-belongs-to-slot-mixin)
   ())
 
-(defclass ar-has-one-slot-mixin ()
-  ((has-one :initarg :has-one
-            :initform nil
-            :accessor has-one)
-   (class-symbol :initarg :class-symbol
+(defmacro def-has-xxx-slot-definition (xxx
+                                       default-class-symbol-form)
+  `(progn
+     (defclass ,(sym "ar-has-" xxx "-slot-mixin") ()
+       ((,(sym "has-" xxx) :initarg ,(key-sym "has-" xxx)
                  :initform nil
-                 :accessor class-symbol)))
+                 :accessor ,(sym "has-" xxx))
+        (class-symbol :initarg :class-symbol
+                      :initform nil
+                      :accessor class-symbol)))
 
-(defmethod initialize-instance :after ((self ar-has-one-slot-mixin) &rest args)
-  (declare (ignore args))
-  (unless (class-symbol self)
-    (setf (class-symbol self) (has-one self))))
+     (defmethod initialize-instance :after ((self ,(sym "ar-has-" xxx "-slot-mixin")) &rest args)
+        (declare (ignore args))
+        (unless (class-symbol self)
+          (setf (class-symbol self) ,default-class-symbol-form)))
 
-(defclass ar-has-one-direct-slot-definition (ar-direct-slot-definition
-                                             ar-has-one-slot-mixin)
-  ())
+     (defclass ,(sym "ar-has-" xxx "-direct-slot-definition") (ar-direct-slot-definition
+                                                  ,(sym "ar-has-" xxx "-slot-mixin"))
+       ())
 
-(defclass ar-has-one-effective-slot-definition (ar-effective-slot-definition
-                                                ar-has-one-slot-mixin)
-  ())
+     (defclass ,(sym "ar-has-" xxx "-effective-slot-definition") (ar-effective-slot-definition
+                                                     ,(sym "ar-has-" xxx "-slot-mixin"))
+       ())
+     ))
 
-(defclass ar-has-many-slot-mixin ()
-  ((has-many :initarg :has-many
-             :initform nil
-             :accessor has-many)
-   (class-symbol :initarg :class-symbol
-                 :initform nil
-                 :accessor class-symbol)))
-
-(defmethod initialize-instance :after ((self ar-has-many-slot-mixin) &rest args)
-  (declare (ignore args))
-  (unless (class-symbol self)
-    (setf (class-symbol self)
-          (sym (singularize (has-many self))))))
-
-(defclass ar-has-many-direct-slot-definition (ar-direct-slot-definition
-                                              ar-has-many-slot-mixin)
-  ())
-
-(defclass ar-has-many-effective-slot-definition (ar-effective-slot-definition
-                                                 ar-has-many-slot-mixin)
-  ())
+(def-has-xxx-slot-definition one (has-one self))
+(def-has-xxx-slot-definition many (sym (singularize (has-many self))))
 
 (defmethod c2mop:direct-slot-definition-class ((class active-record-class)
                                                &rest initargs)
