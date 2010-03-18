@@ -86,7 +86,7 @@ CREATE TABLE `post_infos` (
                        :commenter(str "quek" i)
                        :body (str "コメント" i))
           do (progn
-               (setf (post-id-of c) (id-of post))
+               (setf (post-of c) post)
                (save c))))
   (let* ((post (car (all post)))
          (comments (comments-of post)))
@@ -104,7 +104,7 @@ CREATE TABLE `post_infos` (
                                    :title "タイトル"
                                    :content "内容")))
         (post-info (make-instance 'post-info :info "まみむめも♪")))
-    (setf (post-id-of post-info) (id-of post))
+    (setf (post-of post-info) post)
     (save post-info))
   (let* ((post (car (all post)))
          (post-info (post-info-of post)))
