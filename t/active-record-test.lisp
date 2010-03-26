@@ -1,5 +1,5 @@
 (defpackage active-record-test
-    (:use :cl :active-record :stefil))
+    (:use :cl :active-support :active-record :stefil))
 
 (in-package :active-record-test)
 
@@ -56,7 +56,7 @@ CREATE TABLE `post_infos` (
     (let ((all (all post)))
       (is (= 1 (length all)))
       (let ((b (car all)))
-        (describe b)
+        ;;(describe b)
         (is (string= "名前" (name-of b)))
         (is (string= "タイトル" (title-of b)))
         (is (string= "内容" (content-of b)))))))
@@ -90,7 +90,7 @@ CREATE TABLE `post_infos` (
                (save c))))
   (let* ((post (car (all post)))
          (comments (comments-of post)))
-    (mapc #'describe comments)
+    ;;(mapc #'describe comments)
     (is (= 3 (length comments)))
     (loop for i from 1 to 3
           for comment in comments
@@ -118,5 +118,27 @@ CREATE TABLE `post_infos` (
     (save post)
     (let ((post (select 'post (id-of post))))
       (is (string= "更新" (name-of post))))))
+
+(deftest test-select ()
+  (mapc #'destroy (all post))
+  (let* ((posts (loop for i from 1 to 10
+                      collect (save (make-instance post
+                                         :name (str i)
+                                         :title (str "タイトル" i)
+                                         :content (str "内容" i)))))
+         (cadr (cadr posts)))
+    (is (string= (title-of cadr) (title-of (select post (id-of cadr)))))
+    (is (= 3 (length (select post (loop repeat 3 for i in posts
+                                        collect (id-of i))))))
+    (is (= 10 (length (select post :all))))
+    (is (= 1 (length (select post :all :conditions '(:name "2")))))
+    (is (= 1 (length (select post :all
+                             :conditions '(:name "2" :title "タイトル2")))))
+    (is (= 0 (length (select post :all
+                             :conditions '(:name "3" :title "タイトル2")))))
+    (is (= 3 (length (select post :all
+                             :conditions '(:name ("1" "3" "5"))))))
+    (is (string= "タイトル1" (title-of (select post :first))))
+    (is (string= "タイトル10" (title-of (select post :last))))))
 
 ;;(active-record-test)

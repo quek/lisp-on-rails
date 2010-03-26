@@ -17,63 +17,6 @@
                      :if-exists :old)
   (after-connect database-type))
 
-(defgeneric pluralize (x)
-  (:method (x)
-    (pluralize (string-downcase (string x)))))
-
-(defmethod pluralize ((string string))
-  (let* (flush add
-         (len (length string))
-	 (last-char-raw (char string (1- len)))
-	 (last-char (char-upcase last-char-raw))
-	 (penult-char (char-upcase (if (> len 1)
-				       (char string (- len 2))
-				       #\Nul))) ;dummy
-	 (last-3 (subseq string (max 0 (- len 3)))))
-    (declare (character last-char-raw last-char penult-char)
-             (string last-3))
-    (setf (values flush add)
-          (cond ((and (char-equal last-char #\Y)
-                      (not (member penult-char '(#\A #\E #\I #\O #\U))))
-                 (values 1 "ies"))
-                ((or (string-equal string "ox")
-                     (string-equal string "vax"))
-                 (values nil "en"))
-                ((or (and (char= last-char #\H)
-                          (member penult-char '(#\C #\S)))
-                     (member last-char '(#\S #\Z #\X)))
-                 (values nil "es"))
-                ((string-equal last-3 "man")
-                 (values 2 "en"))
-                ((string-equal last-3 "ife")
-                 (values  2 "ves"))
-                (t (values nil "s"))))
-    (when flush
-      (setq string (subseq string 0 (- len flush))))
-    (concatenate 'string string add)))
-
-(defgeneric singularize (x)
-  (:method (x)
-    (singularize (string-downcase (string x))))
-  (:method ((string string))
-    (subseq string 0 (1- (length string)))))
-
-(defun sym (&rest args)
-  (intern
-   (with-output-to-string (out)
-    (loop for x in args
-          do (write-string (string-upcase (string x)) out)))
-   *package*))
-
-(defun key-sym (&rest args)
-  (let ((*package* (find-package :keyword)))
-    (apply #'sym args)))
-
-(defun str (&rest args)
-  (with-output-to-string (out)
-    (loop for i in args
-          do (write-string (string-downcase (princ-to-string i)) out))))
-
 (defun sql->sym (name &key (package *package* packagep) (downcase nil))
   (flet ((normalize-case (str)
            (funcall (if downcase #'string-downcase #'string-upcase) 
@@ -246,8 +189,8 @@
        it
        (setf (slot-value instance (has-many slot-def))
              (all (find-class (class-symbol slot-def))
-                  :conditons (list (key-sym (class-name class) '-id)
-                                   (%value-of instance :id))))))
+                  :conditions (list (key-sym (class-name class) '-id)
+                                    (%value-of instance :id))))))
 
 (defmethod (setf c2mop:slot-value-using-class) :after
            (new-value
@@ -267,8 +210,8 @@
        it
        (setf (slot-value instance (has-one slot-def))
              (car (all (find-class (class-symbol slot-def))
-                       :conditons (list (key-sym (class-name class) '-id)
-                                        (%value-of instance :id)))))))
+                       :conditions (list (key-sym (class-name class) '-id)
+                                         (%value-of instance :id)))))))
 
 (defmethod (setf c2mop:slot-value-using-class) :after
            (new-value
@@ -309,7 +252,19 @@
   (:method (value record (column column))
     (setf (slot-value record (column-name column)) value)))
 
-(defgeneric coerce-sql (x)
+(defgeneric coerce-sql-symbol (x)
+  (:method ((x string))
+    x)
+  (:method ((x null))
+    "null")
+  (:method ((x symbol))
+    (substitute #\_ #\- (string-downcase (symbol-name x))))
+  (:method ((x clsql-sys:wall-time))
+    (clsql-sys::db-timestring x))
+  (:method (x)
+    x))
+
+(defgeneric coerce-sql-value (x)
   (:method ((x string))
     (with-output-to-string (out)
       (write-char #\' out)
@@ -319,6 +274,8 @@
                      (write-char x out)))
            x)
       (write-char #\' out)))
+  (:method ((x cons))
+    (format nil "(~{~a~^, ~})" (mapcar #'coerce-sql-value x)))
   (:method ((x null))
     "null")
   (:method ((x symbol))
@@ -351,28 +308,137 @@
           unless (string= "id" (column-name-string x))
             collect x)))
 
+
+(defun construct-finder-sql (class
+                             &key
+                             conditions
+                             order
+                             group
+                             having
+                             limit
+                             offset
+                             ;;joins
+                             ;;include
+                             (select "*")
+                             (from (%table-name-of class))
+                             ;;readonly
+                             lock)
+  (with-output-to-string (out)
+    (format out "select ~a from ~a" select from)
+    (when conditions
+      (format out " where ~{~a~^ and ~}"
+              (loop for (k v) on conditions by #'cddr collect
+                (str (coerce-sql-symbol k)
+                     (typecase v
+                       (cons " in ")
+                       (t "="))
+                     (coerce-sql-value v)))))
+    (when group
+      (format out " group by ~a" group))
+    (when having
+      (format out " having ~a" having))
+    (when order
+      (format out " order by ~a" order))
+    (when limit
+      (format out " limit ~a" limit))
+    (when offset
+      (format out " offset ~a" offset))
+    (when lock
+      (format out " for update"))))
+
+(defgeneric reverse-sql-order (order)
+  (:method
+   ((order symbol))
+   (reverse-sql-order (coerce-sql-symbol order)))
+  (:method
+   ((order string))
+   (format nil "~{~a~^, ~}"
+           (loop for i in (ppcre:split "," order) collect
+             (multiple-value-bind (s m)
+                 (ppcre:regex-replace
+                  (ppcre:create-scanner "\\sasc$" :case-insensitive-mode t)
+                  i "desc")
+               (if m s
+                   (multiple-value-bind (s m)
+                       (ppcre:regex-replace
+                        (ppcre:create-scanner "\\s(edsc|DESC)$"
+                                              :case-insensitive-mode t)
+                        i "asc")
+                     (if m s
+                         (str i " desc")))))))))
+
 ;; find は CL にあるので select にする
-(defgeneric select (class id &rest args))
-(defmethod select ((class symbol) id &rest args)
-  (apply #'select (find-class class) id args))
-(defmethod select ((class active-record-class) id &rest args)
-  (declare (ignore args))
+(defgeneric select (class id-or-keyword
+                          &key
+                          conditions
+                          order
+                          group
+                          having
+                          limit
+                          offset
+                          joins
+                          include
+                          select
+                          from
+                          readonly
+                          lock
+                          &allow-other-keys))
+(defmethod select ((class symbol) id-or-keyword &rest args)
+  (apply #'select (find-class class) id-or-keyword args))
+(defmethod select ((class active-record-class) (id integer)
+                   &rest args
+                   &key conditions)
+  (setf conditions (append (list :id id) conditions))
   (multiple-value-bind (rows columns)
-      (clsql-sys:query (format nil "select * from ~a where id = ~d"
-                               (%table-name-of class) id))
+      (clsql-sys:query
+       ;; TODO きっと args から conditions を取り除かなければならない。
+       ;; McCLIM で綺麗にやってた気がする。
+       (apply #'construct-finder-sql class :conditions conditions args))
+    ;; TODO 該当なしなら例外
     (when rows
       (make-instance-from-row class (car rows) columns))))
 
-(defgeneric all (class &key &allow-other-keys)
-  (:method ((class active-record-class) &key conditions)
-    (multiple-value-bind (rows columns)
-        (clsql-sys:query
-         (with-output-to-string (out)
-           (format out "select * from ~a" (%table-name-of class))
-           (when conditions
-             (format out " where ~{~a = ~a~^ and ~}" conditions))))
-      (loop for i in rows
-            collect (make-instance-from-row class i columns)))))
+(defmethod select ((class active-record-class) (ids list)
+                   &rest args
+                   &key conditions)
+  (setf conditions (append (list :id ids) conditions))
+  (multiple-value-bind (rows columns)
+      (clsql-sys:query
+       (apply #'construct-finder-sql class :conditions conditions args))
+    ;; TODO 該当なしなら例外
+    (loop for i in rows
+            collect (make-instance-from-row class i columns))))
+
+(defmethod select ((class active-record-class) (keyword (eql :all))
+                   &rest args)
+  (multiple-value-bind (rows columns)
+      (clsql-sys:query
+       (apply #'construct-finder-sql class args))
+    (loop for i in rows
+            collect (make-instance-from-row class i columns))))
+
+(defmethod select ((class active-record-class) (keyword (eql :first))
+                   &rest args
+                   &key (order "id"))
+  (multiple-value-bind (rows columns)
+      (clsql-sys:query
+       (apply #'construct-finder-sql class :order order :limit 1 args))
+    (when rows
+      (make-instance-from-row class (car rows) columns))))
+
+(defmethod select ((class active-record-class) (keyword (eql :last))
+                   &rest args
+                   &key (order "id"))
+  (multiple-value-bind (rows columns)
+      (clsql-sys:query
+       (apply #'construct-finder-sql class :order (reverse-sql-order order)
+              :limit 1 args))
+    (when rows
+      (make-instance-from-row class (car rows) columns))))
+
+(defun all (&rest args)
+  (apply #'select (car args) :all (cdr args)))
+;; first と last は CL パッケージとかぶる。
 
 (defgeneric save (record)
   (:method ((self base))
@@ -382,19 +448,18 @@
             (clsql-sys:execute-command
              (format nil "insert into ~a (~{~a~^,~}) values (~{~a~^,~})"
                      (%table-name-of self)
-                     (mapcar #'coerce-sql slots)
-                     (mapcar (lambda (x) (coerce-sql (slot-value self x)))
+                     (mapcar #'coerce-sql-symbol slots)
+                     (mapcar (lambda (x) (coerce-sql-value (slot-value self x)))
                              slots)))
             (setf (%new-record-p self) t
                   (%value-of self :id)
                   (caar (clsql-sys:query "select last_insert_id()"))))
-          ;; TODO update
           (clsql-sys:execute-command
            (format nil "update ~a set ~{~a = ~a~^,~} where id = ~a"
                    (%table-name-of self)
                    (loop for x in slots
-                         append (list (coerce-sql x)
-                                      (coerce-sql (slot-value self x))))
+                         append (list (coerce-sql-symbol x)
+                                      (coerce-sql-value (slot-value self x))))
                    (%value-of self :id)))
           ))
     self))
