@@ -47,10 +47,9 @@
 (defmethod c2mop:validate-superclass ((class active-record-class) (super standard-class))
   t)
 
-(defmethod c2mop:validate-superclass ((class standard-class) (super active-record-class))
+(defmethod c2mop:validate-superclass ((class standard-class)
+                                      (super active-record-class))
   nil)
-
-
 
 
 
@@ -61,11 +60,11 @@
            :initform nil)))
 
 (defclass ar-direct-slot-definition
-      (ar-slot-mixin c2mop:standard-direct-slot-definition)
+    (ar-slot-mixin c2mop:standard-direct-slot-definition)
   ())
 
 (defclass ar-effective-slot-definition
-      (ar-slot-mixin c2mop:standard-effective-slot-definition)
+    (ar-slot-mixin c2mop:standard-effective-slot-definition)
   ())
 
 (defclass ar-belongs-to-slot-mixin ()
@@ -89,23 +88,25 @@
   `(progn
      (defclass ,(sym "ar-has-" xxx "-slot-mixin") ()
        ((,(sym "has-" xxx) :initarg ,(key-sym "has-" xxx)
-                 :initform nil
-                 :accessor ,(sym "has-" xxx))
+          :initform nil
+          :accessor ,(sym "has-" xxx))
         (class-symbol :initarg :class-symbol
                       :initform nil
                       :accessor class-symbol)))
 
-     (defmethod initialize-instance :after ((self ,(sym "ar-has-" xxx "-slot-mixin")) &rest args)
-        (declare (ignore args))
-        (unless (class-symbol self)
-          (setf (class-symbol self) ,default-class-symbol-form)))
+     (defmethod initialize-instance :after ((self ,(sym "ar-has-" xxx
+                                                        "-slot-mixin"))
+                                            &rest args)
+       (declare (ignore args))
+       (unless (class-symbol self)
+         (setf (class-symbol self) ,default-class-symbol-form)))
 
-     (defclass ,(sym "ar-has-" xxx "-direct-slot-definition") (ar-direct-slot-definition
-                                                  ,(sym "ar-has-" xxx "-slot-mixin"))
+     (defclass ,(sym "ar-has-" xxx "-direct-slot-definition")
+         (ar-direct-slot-definition ,(sym "ar-has-" xxx "-slot-mixin"))
        ())
 
-     (defclass ,(sym "ar-has-" xxx "-effective-slot-definition") (ar-effective-slot-definition
-                                                     ,(sym "ar-has-" xxx "-slot-mixin"))
+     (defclass ,(sym "ar-has-" xxx "-effective-slot-definition")
+         (ar-effective-slot-definition ,(sym "ar-has-" xxx "-slot-mixin"))
        ())
      ))
 
@@ -134,39 +135,39 @@
        'ar-effective-slot-definition)))
 
 (defmethod c2mop:compute-effective-slot-definition
-  ((class active-record-class)
-   slot-name
-   direct-slot-definitions)
+    ((class active-record-class)
+     slot-name
+     direct-slot-definitions)
   (let ((dslotd (car direct-slot-definitions)))
     (typecase dslotd
       (ar-belongs-to-direct-slot-definition
-         (let* ((*effective-slot-definition-class*
-                 'ar-belongs-to-effective-slot-definition)
-                (esd (call-next-method)))
-           (setf (belongs-to esd) (belongs-to dslotd))
-           (setf (foreign-slotname esd) (foreign-slotname dslotd))
-           esd))
+       (let* ((*effective-slot-definition-class*
+               'ar-belongs-to-effective-slot-definition)
+              (esd (call-next-method)))
+         (setf (belongs-to esd) (belongs-to dslotd))
+         (setf (foreign-slotname esd) (foreign-slotname dslotd))
+         esd))
       (ar-has-many-direct-slot-definition
-         (let* ((*effective-slot-definition-class*
-                 'ar-has-many-effective-slot-definition)
-                (esd (call-next-method)))
-           (setf (has-many esd) (has-many dslotd)
-                 (class-symbol esd) (class-symbol dslotd))
-           esd))
+       (let* ((*effective-slot-definition-class*
+               'ar-has-many-effective-slot-definition)
+              (esd (call-next-method)))
+         (setf (has-many esd) (has-many dslotd)
+               (class-symbol esd) (class-symbol dslotd))
+         esd))
       (ar-has-one-direct-slot-definition
-         (let* ((*effective-slot-definition-class*
-                 'ar-has-one-effective-slot-definition)
-                (esd (call-next-method)))
-           (setf (has-one esd) (has-one dslotd)
-                 (class-symbol esd) (class-symbol dslotd))
-           esd))
+       (let* ((*effective-slot-definition-class*
+               'ar-has-one-effective-slot-definition)
+              (esd (call-next-method)))
+         (setf (has-one esd) (has-one dslotd)
+               (class-symbol esd) (class-symbol dslotd))
+         esd))
       (t (setf *effective-slot-definition-class* nil)
          (call-next-method)))))
 
 (defmethod c2mop:slot-value-using-class
-  ((class active-record-class)
-   instance
-   (slot-def ar-belongs-to-effective-slot-definition))
+    ((class active-record-class)
+     instance
+     (slot-def ar-belongs-to-effective-slot-definition))
   (aif (call-next-method)
        it
        (setf (slot-value instance (belongs-to slot-def))
@@ -174,17 +175,17 @@
                      (slot-value instance (foreign-slotname slot-def))))))
 
 (defmethod (setf c2mop:slot-value-using-class) :after
-           (new-value
-            (class active-record-class)
-            instance
-            (slot-def ar-belongs-to-effective-slot-definition))
+    (new-value
+     (class active-record-class)
+     instance
+     (slot-def ar-belongs-to-effective-slot-definition))
   (setf (slot-value instance (foreign-slotname slot-def))
         (and new-value (%value-of new-value :id))))
 
 (defmethod c2mop:slot-value-using-class
-  ((class active-record-class)
-   instance
-   (slot-def ar-has-many-effective-slot-definition))
+    ((class active-record-class)
+     instance
+     (slot-def ar-has-many-effective-slot-definition))
   (aif (call-next-method)
        it
        (setf (slot-value instance (has-many slot-def))
@@ -193,19 +194,19 @@
                                     (%value-of instance :id))))))
 
 (defmethod (setf c2mop:slot-value-using-class) :after
-           (new-value
-            (class active-record-class)
-            instance
-            (slot-def ar-has-many-effective-slot-definition))
+    (new-value
+     (class active-record-class)
+     instance
+     (slot-def ar-has-many-effective-slot-definition))
   (loop with id = (%value-of instance :id)
-        with column = (str (class-name class) "-id")
-        for x in new-value
-        do (setf (%value-of x column) id)))
+     with column = (str (class-name class) "-id")
+     for x in new-value
+     do (setf (%value-of x column) id)))
 
 (defmethod c2mop:slot-value-using-class
-  ((class active-record-class)
-   instance
-   (slot-def ar-has-one-effective-slot-definition))
+    ((class active-record-class)
+     instance
+     (slot-def ar-has-one-effective-slot-definition))
   (aif (call-next-method)
        it
        (setf (slot-value instance (has-one slot-def))
@@ -214,13 +215,13 @@
                                          (%value-of instance :id)))))))
 
 (defmethod (setf c2mop:slot-value-using-class) :after
-           (new-value
-            (class active-record-class)
-            instance
-            (slot-def ar-has-one-effective-slot-definition))
-   (when new-value
-     (setf (%value-of new-value (str (class-name class) "-id"))
-           (%value-of instance :id))))
+    (new-value
+     (class active-record-class)
+     instance
+     (slot-def ar-has-one-effective-slot-definition))
+  (when new-value
+    (setf (%value-of new-value (str (class-name class) "-id"))
+          (%value-of instance :id))))
 
 
 
@@ -288,10 +289,10 @@
 (defmethod make-instance-from-row (class row fields)
   (let ((instance (make-instance class)))
     (loop for col in fields
-          for i from 0
-          for x = (find-column class col)
-          if x
-            do (setf (%value-of instance x) (nth i row)))
+       for i from 0
+       for x = (find-column class col)
+       if x
+       do (setf (%value-of instance x) (nth i row)))
     instance))
 
 (defgeneric find-column (active-record-class x)
@@ -305,8 +306,8 @@
 (defgeneric columns-expect-id (active-record-class)
   (:method ((class active-record-class))
     (loop for x in (%columns-of class)
-          unless (string= "id" (column-name-string x))
-            collect x)))
+       unless (string= "id" (column-name-string x))
+       collect x)))
 
 
 (defun construct-finder-sql (class
@@ -328,11 +329,11 @@
     (when conditions
       (format out " where ~{~a~^ and ~}"
               (loop for (k v) on conditions by #'cddr collect
-                (str (coerce-sql-symbol k)
-                     (typecase v
-                       (cons " in ")
-                       (t "="))
-                     (coerce-sql-value v)))))
+                   (str (coerce-sql-symbol k)
+                        (typecase v
+                          (cons " in ")
+                          (t "="))
+                        (coerce-sql-value v)))))
     (when group
       (format out " group by ~a" group))
     (when having
@@ -348,24 +349,24 @@
 
 (defgeneric reverse-sql-order (order)
   (:method
-   ((order symbol))
-   (reverse-sql-order (coerce-sql-symbol order)))
+      ((order symbol))
+    (reverse-sql-order (coerce-sql-symbol order)))
   (:method
-   ((order string))
-   (format nil "~{~a~^, ~}"
-           (loop for i in (ppcre:split "," order) collect
-             (multiple-value-bind (s m)
-                 (ppcre:regex-replace
-                  (ppcre:create-scanner "\\sasc$" :case-insensitive-mode t)
-                  i "desc")
-               (if m s
-                   (multiple-value-bind (s m)
-                       (ppcre:regex-replace
-                        (ppcre:create-scanner "\\s(edsc|DESC)$"
-                                              :case-insensitive-mode t)
-                        i "asc")
-                     (if m s
-                         (str i " desc")))))))))
+      ((order string))
+    (format nil "~{~a~^, ~}"
+            (loop for i in (ppcre:split "," order) collect
+                 (multiple-value-bind (s m)
+                     (ppcre:regex-replace
+                      (ppcre:create-scanner "\\sasc$" :case-insensitive-mode t)
+                      i "desc")
+                   (if m s
+                       (multiple-value-bind (s m)
+                           (ppcre:regex-replace
+                            (ppcre:create-scanner "\\s(edsc|DESC)$"
+                                                  :case-insensitive-mode t)
+                            i "asc")
+                         (if m s
+                             (str i " desc")))))))))
 
 ;; find は CL にあるので select にする
 (defgeneric select (class id-or-keyword
@@ -393,7 +394,8 @@
       (clsql-sys:query
        ;; TODO きっと args から conditions を取り除かなければならない。
        ;; McCLIM で綺麗にやってた気がする。
-       (apply #'construct-finder-sql class :conditions conditions args))
+       (with-keywords-removed (args :conditions)
+         (apply #'construct-finder-sql class :conditions conditions args)))
     ;; TODO 該当なしなら例外
     (when rows
       (make-instance-from-row class (car rows) columns))))
@@ -404,10 +406,11 @@
   (setf conditions (append (list :id ids) conditions))
   (multiple-value-bind (rows columns)
       (clsql-sys:query
-       (apply #'construct-finder-sql class :conditions conditions args))
+       (with-keywords-removed (args :conditions)
+         (apply #'construct-finder-sql class :conditions conditions args)))
     ;; TODO 該当なしなら例外
     (loop for i in rows
-            collect (make-instance-from-row class i columns))))
+       collect (make-instance-from-row class i columns))))
 
 (defmethod select ((class active-record-class) (keyword (eql :all))
                    &rest args)
@@ -415,14 +418,15 @@
       (clsql-sys:query
        (apply #'construct-finder-sql class args))
     (loop for i in rows
-            collect (make-instance-from-row class i columns))))
+       collect (make-instance-from-row class i columns))))
 
 (defmethod select ((class active-record-class) (keyword (eql :first))
                    &rest args
                    &key (order "id"))
   (multiple-value-bind (rows columns)
       (clsql-sys:query
-       (apply #'construct-finder-sql class :order order :limit 1 args))
+       (with-keywords-removed (args :order :limit)
+         (apply #'construct-finder-sql class :order order :limit 1 args)))
     (when rows
       (make-instance-from-row class (car rows) columns))))
 
@@ -431,8 +435,9 @@
                    &key (order "id"))
   (multiple-value-bind (rows columns)
       (clsql-sys:query
-       (apply #'construct-finder-sql class :order (reverse-sql-order order)
-              :limit 1 args))
+       (with-keywords-removed (args :order :limit)
+         (apply #'construct-finder-sql class :order (reverse-sql-order order)
+                :limit 1 args)))
     (when rows
       (make-instance-from-row class (car rows) columns))))
 
@@ -458,8 +463,8 @@
            (format nil "update ~a set ~{~a = ~a~^,~} where id = ~a"
                    (%table-name-of self)
                    (loop for x in slots
-                         append (list (coerce-sql-symbol x)
-                                      (coerce-sql-value (slot-value self x))))
+                      append (list (coerce-sql-symbol x)
+                                   (coerce-sql-value (slot-value self x))))
                    (%value-of self :id)))
           ))
     self))
@@ -483,66 +488,70 @@
 (defmacro def-record (name &rest options)
   (let* ((table-name (substitute #\_ #\- (pluralize name)))
          (attributes (clsql-sys:list-attribute-types table-name))
-         (columns (loop for (column-name type precision scale nullable) in attributes
-                        collect (make-instance 'column
-                                     :name (sql->sym column-name :package *package*)
-                                     :name-string column-name
-                                     :key (sql->sym column-name :package :keyword)
-                                     :type type
-                                     :precision precision
-                                     :scale scale
-                                     :nullable nullable))))
+         (columns (loop for (column-name type precision scale nullable)
+                     in attributes
+                     collect (make-instance
+                              'column
+                              :name (sql->sym column-name :package *package*)
+                              :name-string column-name
+                              :key (sql->sym column-name :package :keyword)
+                              :type type
+                              :precision precision
+                              :scale scale
+                              :nullable nullable))))
     `(progn
        (defparameter ,name
          (defclass ,name (base)
            (,@(loop for x in columns
-                    collect (list (column-name x)
-                                  :initarg (column-key x)
-                                  :initform nil
-                                  :accessor (sym (column-name x) '-of)))
+                 collect (list (column-name x)
+                               :initarg (column-key x)
+                               :initform nil
+                               :accessor (sym (column-name x) '-of)))
             ,@(loop for (association table) in options
-                    ;; belongs-to
-                    if (eq :belongs-to association)
-                      collect (list table
-                                    :initform nil
-                                    :belongs-to table
-                                    :foreign-slotname (sym table '-id)
-                                    :accessor (sym table '-of))
-                    ;; has-many
-                    if (eq :has-many association)
-                      collect (list table
-                                    :initform nil
-                                    :has-many table
-                                    :class-symbol (sym (singularize table))
-                                    :accessor (sym table '-of))
-                    ;; has-one
-                    if (eq :has-one association)
-                      collect (list table
-                                    :initform nil
-                                    :has-one table
-                                    :class-symbol table
-                                    :accessor (sym table '-of))
-                    ))
+                 ;; belongs-to
+                 if (eq :belongs-to association)
+                 collect (list table
+                               :initform nil
+                               :belongs-to table
+                               :foreign-slotname (sym table '-id)
+                               :accessor (sym table '-of))
+                 ;; has-many
+                 if (eq :has-many association)
+                 collect (list table
+                               :initform nil
+                               :has-many table
+                               :class-symbol (sym (singularize table))
+                               :accessor (sym table '-of))
+                 ;; has-one
+                 if (eq :has-one association)
+                 collect (list table
+                               :initform nil
+                               :has-one table
+                               :class-symbol table
+                               :accessor (sym table '-of))
+                   ))
            (:metaclass active-record-class)))
 
        (setf (%table-name-of ,name) ,table-name)
        (setf (%columns-of ,name)
-             (loop for (column-name type precision scale nullable) in ',attributes
-                   collect (make-instance 'column
-                                :name (sql->sym column-name :package *package*)
-                                :name-string column-name
-                                :key (sql->sym column-name :package :keyword)
-                                :type type
-                                :precision precision
-                                :scale scale
-                                :nullable nullable)))
+             (loop for (column-name type precision scale nullable)
+                in ',attributes
+                collect (make-instance
+                         'column
+                         :name (sql->sym column-name :package *package*)
+                         :name-string column-name
+                         :key (sql->sym column-name :package :keyword)
+                         :type type
+                         :precision precision
+                         :scale scale
+                         :nullable nullable)))
 
        (defmethod print-object ((self ,name) stream)
          (print-unreadable-object (self stream :type t :identity t)
            (format stream "~@{~a: ~s~^, ~}"
                    ,@(loop for x in columns
-                           append (list `',(column-name x)
-                                        `(,(sym (column-name x)'-of) self)))))))))
+                        append (list `',(column-name x)
+                                     `(,(sym (column-name x)'-of) self)))))))))
 
 ;; (def-record post (:has-many comments))
 ;; (def-record comment (:belongs-to post))

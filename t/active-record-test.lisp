@@ -139,6 +139,8 @@ CREATE TABLE `post_infos` (
     (is (= 3 (length (select post :all
                              :conditions '(:name ("1" "3" "5"))))))
     (is (string= "タイトル1" (title-of (select post :first))))
-    (is (string= "タイトル10" (title-of (select post :last))))))
+    (is (string= "タイトル10" (title-of (select post :last))))
+    (is (string= "2" (name-of (select post (id-of cadr)
+                                      :conditions '(:name "2")))))))
 
 ;;(active-record-test)

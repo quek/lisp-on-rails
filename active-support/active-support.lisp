@@ -56,3 +56,9 @@
   (with-output-to-string (out)
     (loop for i in args
           do (write-string (string-downcase (princ-to-string i)) out))))
+
+(defmacro with-keywords-removed ((options &rest keywords) &body body)
+  `(let ((,options (loop for (k v) on ,options by #'cddr
+                         unless (member k ',keywords :test #'eq)
+                           append (list k v))))
+     ,@body))

@@ -4,4 +4,5 @@
            #:singularize
            #:sym
            #:key-sym
-           #:str))
+           #:str
+           #:with-keywords-removed))
