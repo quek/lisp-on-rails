@@ -293,6 +293,7 @@
        for x = (find-column class col)
        if x
        do (setf (%value-of instance x) (nth i row)))
+    (setf (%new-record-p instance) nil)
     instance))
 
 (defgeneric find-column (active-record-class x)
