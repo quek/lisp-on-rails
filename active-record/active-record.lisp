@@ -448,27 +448,13 @@
 
 (defgeneric save (record)
   (:method ((self base))
-    (let ((slots (mapcar #'column-name (columns-expect-id (class-of self)))))
-      (if (%new-record-p self)
-          (progn
-            (clsql-sys:execute-command
-             (format nil "insert into ~a (~{~a~^,~}) values (~{~a~^,~})"
-                     (%table-name-of self)
-                     (mapcar #'coerce-sql-symbol slots)
-                     (mapcar (lambda (x) (coerce-sql-value (slot-value self x)))
-                             slots)))
-            (setf (%new-record-p self) t
-                  (%value-of self :id)
-                  (caar (clsql-sys:query "select last_insert_id()"))))
-          (clsql-sys:execute-command
-           (format nil "update ~a set ~{~a = ~a~^,~} where id = ~a"
-                   (%table-name-of self)
-                   (loop for x in slots
-                      append (list (coerce-sql-symbol x)
-                                   (coerce-sql-value (slot-value self x))))
-                   (%value-of self :id)))
-          ))
-    self))
+    (create-or-update self)))
+
+(defgeneric create-or-update (record)
+  (:method ((self base))
+    (if (%new-record-p self)
+        (create self)
+        (update self))))
 
 (defmethod save :before (record)
   (let* ((class (class-of record))
@@ -479,6 +465,32 @@
       (setf (%value-of record created-at) time))
     (when updated-at
       (setf (%value-of record updated-at) time))))
+
+(defgeneric create (record)
+  (:method ((self base))
+    (let ((slots (mapcar #'column-name (columns-expect-id (class-of self)))))
+      (clsql-sys:execute-command
+       (format nil "insert into ~a (~{~a~^,~}) values (~{~a~^,~})"
+               (%table-name-of self)
+               (mapcar #'coerce-sql-symbol slots)
+               (mapcar (lambda (x) (coerce-sql-value (slot-value self x)))
+                       slots)))
+      (setf (%new-record-p self) t
+            (%value-of self :id)
+            (caar (clsql-sys:query "select last_insert_id()"))))
+    self))
+
+(defgeneric update (record)
+  (:method ((self base))
+    (let ((slots (mapcar #'column-name (columns-expect-id (class-of self)))))
+      (clsql-sys:execute-command
+       (format nil "update ~a set ~{~a = ~a~^,~} where id = ~a"
+               (%table-name-of self)
+               (loop for x in slots
+                  append (list (coerce-sql-symbol x)
+                               (coerce-sql-value (slot-value self x))))
+               (%value-of self :id))))
+    self))
 
 (defgeneric destroy (record)
   (:method ((self base))
