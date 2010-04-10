@@ -224,6 +224,32 @@
           (%value-of instance :id))))
 
 
+(define-method-combination active-record ()
+  ((around (:around))
+   (before (:before))
+   (primary () :required t)
+   (after (:after)))
+  "before メソッドが nil を返した場合メソッドの実行を中断する。"
+  (flet ((call-methods (methods)
+           (mapcar #'(lambda (method)
+                       `(call-method ,method))
+                   methods))
+         (call-methods-and (methods)
+           `(and ,@(mapcar #'(lambda (method)
+                               `(call-method ,method))
+                           methods))))
+    (let ((form (if (or before after (rest primary))
+                    `(when ,(call-methods-and before)
+                       (multiple-value-prog1
+                           (call-method ,(first primary)
+                                        ,(rest primary))
+                         ,@(call-methods (reverse after))))
+                    `(call-method ,(first primary)))))
+      (if around
+          `(call-method ,(first around)
+                        (,@(rest around)
+                           (make-method ,form)))
+          form))))
 
 
 (defparameter base
@@ -447,10 +473,12 @@
 ;; first と last は CL パッケージとかぶる。
 
 (defgeneric save (record)
+  (:method-combination active-record)
   (:method ((self base))
     (create-or-update self)))
 
 (defgeneric create-or-update (record)
+  (:method-combination active-record)
   (:method ((self base))
     (if (%new-record-p self)
         (create self)
@@ -464,9 +492,11 @@
     (when (and created-at (null (%value-of record created-at)))
       (setf (%value-of record created-at) time))
     (when updated-at
-      (setf (%value-of record updated-at) time))))
+      (setf (%value-of record updated-at) time))
+    t))
 
 (defgeneric create (record)
+  (:method-combination active-record)
   (:method ((self base))
     (let ((slots (mapcar #'column-name (columns-expect-id (class-of self)))))
       (clsql-sys:execute-command
@@ -481,6 +511,7 @@
     self))
 
 (defgeneric update (record)
+  (:method-combination active-record)
   (:method ((self base))
     (let ((slots (mapcar #'column-name (columns-expect-id (class-of self)))))
       (clsql-sys:execute-command
@@ -493,10 +524,12 @@
     self))
 
 (defgeneric destroy (record)
+  (:method-combination active-record)
   (:method ((self base))
     (clsql-sys:execute-command (format nil "delete from ~a where id = ~d"
                                        (%table-name-of (class-of self))
                                        (%value-of self :id)))))
+
 
 (defmacro def-record (name &rest options)
   (let* ((table-name (substitute #\_ #\- (pluralize name)))

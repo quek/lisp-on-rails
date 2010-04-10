@@ -143,4 +143,14 @@ CREATE TABLE `post_infos` (
     (is (string= "2" (name-of (select post (id-of cadr)
                                       :conditions '(:name "2")))))))
 
+(defmethod save :before ((self post))
+  (string/= "" (title-of self)))
+
+(deftest test-before-save ()
+  (mapc #'destroy (all post))
+  (is (null (save (make-instance 'post :name "a" :title "" :content "c"))))
+  (is (null (all post)))
+  (is (save (make-instance 'post :name "a" :title "b" :content "c")))
+  (is (all post)))
+
 ;;(active-record-test)
