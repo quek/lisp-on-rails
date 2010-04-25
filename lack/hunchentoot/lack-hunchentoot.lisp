@@ -23,15 +23,20 @@
   )
 
 (defun finish-response (status header body)
+  (setf (hunchentoot:return-code*) status)
+  (loop for (k . v) in header
+     do (setf (hunchentoot:header-out k) v))
   (with-output-to-string (out)
     (loop for i in body
        do (princ i out))))
 
 #|
-(progn
-  (defclass foo () ())
-  (defmethod call ((foo foo) env)
-    `(200 () ("<h1>" "Hello " ,(get-universal-time) "</h1>")))
-  (lack:run (make-instance 'lack-hunchentoot:hunchentoot-web-server)
-            (make-instance 'lack-hunchentoot::foo)))
+(defclass foo () ())
+
+(defmethod call ((foo foo) env)
+  `(200 (("Lisp" . "Common Lisp"))
+        ("<h1>" "Hello " ,(get-universal-time) "</h1>")))
+
+(lack:run (make-instance 'lack-hunchentoot:hunchentoot-web-server)
+          (make-instance 'lack-hunchentoot::foo))
 |#
