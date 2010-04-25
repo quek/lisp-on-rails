@@ -9,7 +9,7 @@
                         :serial t
                         :components ((:file "packages")
                                      (:file "lack-hunchentoot"))))
-  :depends-on (lack))
+  :depends-on (lack alexandria))
 
 (defmethod perform ((o test-op) (c (eql (asdf:find-system :lack-hunchentoot))))
   (operate 'load-op :lack-hunchentoot-test)

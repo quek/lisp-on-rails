@@ -7,6 +7,23 @@
            #:web-server
            #:request
            #:response
+           #:make-request
            #:make-response
-           #:make-requestq
+           #:params
+           #:param
+           #:cookies
+           #:query-string
+           #:body
+           #:get-params
+           #:post-params
+           #:request-method
+           #:delete-p
+           #:get-p
+           #:post-p
+           #:put-p
+           #:xhr-p
+           #:out
+           #:emptyp
+           #:set-cookie
+           #:finish
            ))

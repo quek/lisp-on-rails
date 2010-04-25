@@ -10,14 +10,15 @@
 (defclass hunchentoot-web-server (web-server) ())
 
 (defmethod run ((web-server hunchentoot-web-server) x)
-  (labels ((dispatch ()
-             (destructuring-bind (status header body)
-                 (call x (make-env))
-               (finish-response status header body))))
-    (push (hunchentoot:create-prefix-dispatcher *url-prefix* #'dispatch)
-          hunchentoot:*dispatch-table*)
-    (let ((acceptor (make-instance 'hunchentoot:acceptor :port *port*)))
-      (hunchentoot:start acceptor))))
+  (let ((lack::*web-server* web-server))
+    (labels ((dispatch ()
+                       (destructuring-bind (status header body)
+                           (call x (make-env))
+                         (finish-response status header body))))
+      (push (hunchentoot:create-prefix-dispatcher *url-prefix* #'dispatch)
+            hunchentoot:*dispatch-table*)
+      (let ((acceptor (make-instance 'hunchentoot:acceptor :port *port*)))
+        (hunchentoot:start acceptor)))))
 
 (defun make-env ()
   )
@@ -29,6 +30,33 @@
   (with-output-to-string (out)
     (loop for i in body
        do (princ i out))))
+
+(defclass hunchentoot-request (request)
+  ((params :initarg :params :accessor params)
+   (get-params :initarg :get-params :accessor get-params)
+   (post-params :initarg :post-params :accessor post-params)
+   (cookie :initarg :cookie :accessor cookie)
+   (query-string :initarg :query-string :accessor query-string)))
+
+(defmethod lack::make-request-for-web-server (env (web-server
+                                                   hunchentoot-web-server))
+  (let ((get-params (alexandria:alist-hash-table
+                     (hunchentoot:get-parameters*) :test #'equal))
+        (post-params (alexandria:alist-hash-table
+                      (hunchentoot:post-parameters*) :test #'equal))
+        (params (alexandria:alist-hash-table
+                 (append (hunchentoot:get-parameters*)
+                         (hunchentoot:post-parameters*)) :test #'equal))
+        (cookie (alexandria:alist-hash-table
+                 (hunchentoot:cookies-in*) :test #'equal))
+        (query-string (hunchentoot:query-string*)))
+    (make-instance 'hunchentoot-request
+                   :params params
+                   :get-params get-params
+                   :post-params post-params
+                   :cookie cookie
+                   :query-string query-string)))
+
 
 #|
 (defclass foo () ())

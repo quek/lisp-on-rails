@@ -14,13 +14,17 @@
 
 (defclass request () ())
 
-(defgeneric make-request-for-web-server (request web-server))
+(defgeneric make-request-for-web-server (env web-server))
 (defun make-request (env)
   (make-request-for-web-server env *web-server*))
 
 (defgeneric params (request))
-(defgeneric param (request key))
-(defgeneric (setf param) (value request key))
+(defgeneric param (request key)
+  (:method (request key)
+    (gethash key (params request))))
+(defgeneric (setf param) (value request key)
+  (:method (value request key)
+    (setf (gethash key (params request)) value)))
 (defgeneric cookies (request))
 (defgeneric query-string (request))
 (defgeneric body (request))
