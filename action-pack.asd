@@ -8,6 +8,8 @@
   :components ((:module "action-pack"
                         :serial t
                         :components ((:file "packages")
+                                     (:file "dispatcher")
+                                     (:file "routes")
                                      (:file "action-controller"))))
   :depends-on (lack active-support))
 

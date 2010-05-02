@@ -8,10 +8,8 @@
   :components ((:module "active-support"
                         :serial t
                         :components ((:file "packages")
-                                     (:file "active-support")
-                                     (:file "dispatcher")
-                                     (:file "action-controller"))))
-  :depends-on (clsql anaphora closer-mop cl-ppcre))
+                                     (:file "active-support"))))
+  :depends-on (clsql anaphora closer-mop cl-ppcre quek))
 
 (defmethod perform ((o test-op) (c (eql (asdf:find-system :active-support))))
   (operate 'load-op :active-support-test)
