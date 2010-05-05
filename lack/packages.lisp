@@ -16,6 +16,11 @@
            #:body
            #:get-params
            #:post-params
+           #:url
+           #:scheme
+           #:host
+           #:port
+           #:fullpath
            #:request-method
            #:delete-p
            #:get-p

@@ -57,6 +57,11 @@
                    :cookie cookie
                    :query-string query-string)))
 
+(defmethod request-method (request)
+  (intern (string-upcase (string (hunchentoot:request-method*))) :keyword))
+
+(defmethod url (request)
+  (hunchentoot:request-uri*))
 
 #|
 (defclass foo () ())

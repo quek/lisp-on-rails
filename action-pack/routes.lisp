@@ -1,4 +1,7 @@
-(in-package :action-pack)
+(in-package :action-controller)
+
+(defvar *routes* nil "config/routes.lisp で定義する。")
+(defvar *routes-package* nil)
 
 ;;(resources :users)
 (defun users-path ()

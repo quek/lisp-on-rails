@@ -1,4 +1,4 @@
-(in-package :action-pack)
+(in-package :action-controller)
 
 (defvar *request*)
 (defvar *response*)
@@ -16,23 +16,21 @@
     (setf (param key) value)))
 
 (defclass dispatcher ()
-  ())
-
-#|
-dispatcher.rb
-call build_middleware_stack _call dispatch Routing::Routes.call(@env)
-|#
+  ((routes :initarg :routes :accessor routes-of)
+   (package :initarg :package :accessor package-of)))
 
 (defmethod call ((dispatcher dispatcher) env)
   (let ((*request* (lack:make-request env))
         (*response* (lack:make-response)))
-    (dispatch)))
+    (aif (loop for i in *routes*
+            with url = (url *request*)
+            thereis (funcall i url))
+         (apply #'dispatch dispatcher it)
+         (error "no route for ~a" (url *request*)))))
 
-(defun compute-route ()
-  (values 'controller 'action))         ; TODO
-
-(defun dispatch ()
-  (multiple-value-bind (controller action) (compute-route)
-    (setf (param :controller) controller
-          (param :action) action)
-    (perform-action (make-instance controller) action)))
+(defmethod dispatch ((dispatcher dispatcher) &key controller (action "index"))
+  (with-slots (package) dispatcher
+    (let ((class (intern controller package))
+          (method (intern action package)))
+      (perform-action (make-instance class) method)
+      (finish *response*))))
