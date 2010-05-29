@@ -19,4 +19,8 @@
   (:method ((controller base))
     (render controller)))
 
-(defgeneric render (controller &key :action :html :layout))
+(defgeneric render (controller &key :action :html :layout &allow-other-keys)
+  (:method (controller &rest rags)
+    (let ((class-name (class-name (class-of controller))))
+      "baha")))
+

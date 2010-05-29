@@ -8,6 +8,7 @@
   :components ((:module "action-pack"
                         :serial t
                         :components ((:file "packages")
+                                     (:file "ecl")
                                      (:file "dispatcher")
                                      (:file "routes")
                                      (:file "action-controller"))))

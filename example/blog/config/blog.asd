@@ -2,21 +2,21 @@
 (defsystem :blog
   :version "0.0.0"
   :serial t
-  :components ((:module "config"
+  :components ((:module "../config"
                         :serial t
                         :components ((:file "packages")
-                                     (:file "environments")
+                                     (:file "environment")
                                      (:file "routes")))
-               (:module "app/models"
+               (:module "../app/models"
                         :serial t
                         :components ())
-               (:module "app/controllers"
+               (:module "../app/controllers"
                         :serial t
                         :components ((:file "application-controller")))
-               (:module "app/helpers"
+               (:module "../app/helpers"
                         :serial t
                         :components ((:file "application-helper")))
-               (:module "app/views"
+               (:module "../app/views"
                         :serial t
                         :components ()))
-  :depends-on (:action-pack :active-record))
+  :depends-on (:railties :action-pack :active-record))
