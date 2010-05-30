@@ -26,18 +26,18 @@
                               (ppcre:all-matches-as-strings r2 path)))
           (reg path))
       (loop for x in parameters
-         do (setf reg (ppcre:regex-replace r2 reg #"""(#,r1,)""")))
+         do (setf reg (ppcre:regex-replace r2 reg #"""(#,r1)""")))
       (lambda (x)
         (multiple-value-bind (match regs) (ppcre:scan-to-strings reg x)
           (when match
             (append (when controller
-                      (list :controller controller))
+                      (list :controller (string controller)))
                     (when action
-                      (list :action action))
+                      (list :action (string  action)))
                     (loop for x in parameters
                        and y across regs
-                       append (list x y))))))
-      )))
+                       append (list x y)))))))))
 
-(funcall (connect ":controller/:action/:id") "foo/bar/12")
-(funcall (connect "foo/:action/:id" :controller "c1") "foo/bar/12")
+
+;;(funcall (connect ":controller/:action/:id") "foo/bar/12")
+;;(funcall (connect "foo/:action/:id" :controller "c1") "foo/bar/12")

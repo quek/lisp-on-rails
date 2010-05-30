@@ -12,7 +12,8 @@
                         :components ())
                (:module "../app/controllers"
                         :serial t
-                        :components ((:file "application-controller")))
+                        :components ((:file "application-controller")
+                                     (:file "top-controller")))
                (:module "../app/helpers"
                         :serial t
                         :components ((:file "application-helper")))

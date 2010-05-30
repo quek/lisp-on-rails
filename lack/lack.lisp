@@ -4,7 +4,7 @@
 (defparameter *port* 8888)
 
 (defclass web-server () ())
-(defparameter *web-server* (make-instance 'web-server))
+(defvar *web-server* (make-instance 'web-server))
 
 
 (defgeneric call (x env))
@@ -15,6 +15,7 @@
 (defclass request () ())
 
 (defgeneric make-request-for-web-server (env web-server))
+
 (defun make-request (env)
   (make-request-for-web-server env *web-server*))
 
@@ -71,7 +72,9 @@
 (defclass response ()
   ((body :initarg :body :initform nil :accessor body)
    (status :initarg :status :initform 200 :accessor status)
-   (header :initarg :header :initform nil :accessor header)))
+   (header :initarg :header
+           :initform '(("Content-Type" . "text/html; charset=utf-8;"))
+           :accessor header)))
 
 (defgeneric make-response-for-web-server (web-server)
   (:method ((web-server web-server))
@@ -81,7 +84,7 @@
 
 (defgeneric out (response string)
   (:method ((response response) string)
-    (push (body response) string)))
+    (push string (body response))))
 
 (defgeneric emptyp (response)
   (:method ((response response))

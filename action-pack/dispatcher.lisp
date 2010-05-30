@@ -16,21 +16,19 @@
     (setf (param key) value)))
 
 (defclass dispatcher ()
-  ((routes :initarg :routes :accessor routes-of)
-   (package :initarg :package :accessor package-of)))
+  ())
 
-(defmethod call ((dispatcher dispatcher) env)
+(defmethod lack:call ((dispatcher dispatcher) env)
   (let ((*request* (lack:make-request env))
         (*response* (lack:make-response)))
     (aif (loop for i in *routes*
-            with url = (url *request*)
+            with url = (lack:url *request*)
             thereis (funcall i url))
          (apply #'dispatch dispatcher it)
-         (error "no route for ~a" (url *request*)))))
+         (error "no route for ~a" (lack:url *request*)))))
 
-(defmethod dispatch ((dispatcher dispatcher) &key controller (action "index"))
-  (with-slots (package) dispatcher
-    (let ((class (intern controller package))
-          (method (intern action package)))
-      (perform-action (make-instance class) method)
-      (finish *response*))))
+(defmethod dispatch ((dispatcher dispatcher) &key controller (action "INDEX"))
+  (let ((class (intern #"""#,controller,-CONTROLLER""" *routes-package*))
+        (method (intern action *routes-package*)))
+    (perform-action (make-instance class) method)
+    (lack:finish *response*)))

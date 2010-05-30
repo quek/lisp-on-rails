@@ -20,7 +20,6 @@
     (render controller)))
 
 (defgeneric render (controller &key :action :html :layout &allow-other-keys)
-  (:method (controller &rest rags)
+  (:method (controller &rest args)
     (let ((class-name (class-name (class-of controller))))
-      "baha")))
-
+      (lack:out *response* #"""baha #,class-name #,args"""))))

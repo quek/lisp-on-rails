@@ -1,8 +1,8 @@
 (in-package :blog)
 
-(defclass top (action-controller)
+(defclass top-controller (application-controller)
   ((message)))
 
-(defmethod index ((self top))
+(defmethod index ((self top-controller))
   (with-slots (message) self
     (setf message "Hello")))
