@@ -13,6 +13,7 @@
                                :test #'equal))))))
   (f "vendor/**/*.asd"))
 
-(pushnew *load-pathname* asdf:*central-registry* :test #'equal)
+(pushnew (make-pathname :directory (pathname-directory *load-pathname*))
+         asdf:*central-registry* :test #'equal)
 
 (require :blog)
