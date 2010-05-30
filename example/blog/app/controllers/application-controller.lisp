@@ -1,4 +1,4 @@
 (in-package :blog)
 
-(defclass application-controller (action-controller:base)
+(defclass application-controller (action-controller::base)
   ())
