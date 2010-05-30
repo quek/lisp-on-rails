@@ -1,0 +1,15 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>ブログ</title>
+  </head>
+  <body>
+    <h1>パッケージリスト</h1>
+    <ul>
+      <% (loop for i in (list-all-packages) do %>
+      <li><%= (package-name i) %></li><% ) %>
+    </ul>
+    <p>おしまい</p>
+  </body>
+</html>

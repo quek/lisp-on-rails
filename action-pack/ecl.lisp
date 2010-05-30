@@ -74,10 +74,8 @@
     (copy-readtable nil)))
 
 (defun out (x)
-  (princ x))
+  (lack::out action-controller::*response* x))
 
-(defun out-if (x)
-  (when x (out x)))
 
 (defun html-defun-readtable (fname pathspec)
   (let ((*readtable* (copy-readtable nil)))

@@ -29,7 +29,8 @@
      do (setf (hunchentoot:header-out k) v))
   (with-output-to-string (out)
     (loop for i in body
-       do (princ i out))))
+       if i
+         do (princ i out))))
 
 (defclass hunchentoot-request (request)
   ((params :initarg :params :accessor params)
