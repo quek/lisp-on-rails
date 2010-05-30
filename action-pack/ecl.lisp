@@ -1,7 +1,12 @@
 (in-package :action-view)
 
-(defun <%?-readtable ()
+(defun basic-readtable ()
   (let ((*readtable* (copy-readtable nil)))
+    (set-dispatch-macro-character #\# #\" 'quek::|#"-reader|)
+    *readtable*))
+
+(defun <%?-readtable ()
+  (let ((*readtable* (basic-readtable)))
     (set-macro-character #\= '<%=-reader)
     (set-macro-character #\# '<%#-reader)
     (set-macro-character #\% '%>-reader)
@@ -9,7 +14,7 @@
 
 (defun <%=-reader (stream char)
   (declare (ignore char))
-  (setf *readtable* (copy-readtable nil))
+  (setf *readtable* (basic-readtable))
   `(out
     (progn
       ,@(loop for c = (peek-char t stream t t t)
@@ -44,7 +49,7 @@
         (read stream nil stream t))
       (progn
         (unread-char #\% stream)
-        (setf *readtable* (copy-readtable nil))
+        (setf *readtable* (basic-readtable))
         (read stream t t t))))
 
 (defparameter *<%?-readtable* (<%?-readtable))
@@ -65,30 +70,35 @@
 
 (defgeneric make-html-readtable (x)
   (:method ((char character))
-    (let ((*readtable* (copy-readtable nil)))
+    (let ((*readtable* (basic-readtable)))
       (set-macro-character char 'char-reader)
       *readtable*))
   (:method ((stream stream))
     (make-html-readtable (peek-char nil stream nil nil t)))
   (:method ((x null))
-    (copy-readtable nil)))
+    (basic-readtable)))
 
 (defun out (x)
   (lack::out action-controller::*response* x))
 
 
 (defun html-defun-readtable (fname pathspec)
-  (let ((*readtable* (copy-readtable nil)))
+  (let ((*readtable* (basic-readtable)))
     (set-macro-character
      (first-char pathspec)
-     (lambda (stream char)
-       (unread-char char stream)
-       (print
-        `(defun ,fname ()
-           ,@(let ((*readtable* (make-html-readtable char)))
-               (loop for x = (read stream nil stream t)
-                     until (eq x stream)
-                     collect x))))))
+     (let ((in-package t))
+       (lambda (stream char)
+         (unread-char char stream)
+         (print
+          (if in-package
+              (progn
+                (setf in-package nil)
+                `(in-package ,(package-name action-controller:*app-package*)))
+              `(defun ,fname ()
+                 ,@(let ((*readtable* (make-html-readtable char)))
+                     (loop for x = (read stream nil stream t)
+                           until (eq x stream)
+                           collect x))))))))
     *readtable*))
 
 (defun first-char (pathspec)

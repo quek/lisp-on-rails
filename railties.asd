@@ -9,7 +9,7 @@
                         :serial t
                         :components ((:file "packages")
                                      (:file "initialize"))))
-  :depends-on (active-support))
+  :depends-on (active-support action-pack active-record))
 
 (defmethod perform ((o test-op) (c (eql (asdf:find-system :railties))))
   (operate 'load-op :railties-test)

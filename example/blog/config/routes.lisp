@@ -1,6 +1,6 @@
 (in-package :blog)
 
-(setf action-controller:*routes-package* (find-package :blog))
+(setf action-controller:*app-package* (find-package :blog))
 
 (setf action-controller:*routes*
   (list

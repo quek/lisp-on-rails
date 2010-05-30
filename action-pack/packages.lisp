@@ -2,6 +2,8 @@
     (:use :common-lisp :anaphora :active-support)
   (:export #:*routes*
            #:*routes-package*
+           #:*controller*
+           #:*app-package*
            #:connect))
 
 

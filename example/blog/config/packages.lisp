@@ -1,2 +1,2 @@
 (defpackage :blog
-  (:use :cl :active-support :active-record))
+  (:use :cl :active-support :action-controller :active-record))

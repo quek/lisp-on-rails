@@ -1,8 +1,10 @@
 (in-package :blog)
 
 (defclass top-controller (application-controller)
-  ((message)))
+  ((message)
+   (posts)))
 
 (defmethod index ((self top-controller))
-  (with-slots (message) self
-    (setf message "Hello")))
+  (with-slots (message posts) self
+    (setf message "Hello")
+    (setf posts (all post))))

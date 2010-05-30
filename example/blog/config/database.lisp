@@ -1,25 +1,11 @@
-(defparameter
-    active-record::*database-settings*
-  `((:development
-     :adapter :mysql
-     :encoding "utf-8"
-     :host "localhost"
-     :database "blog_development"
-     :username "root"
-     :password "")
+((:development
+  :connection-spec ("localhost" "blog_development" "root" "")
+  :database-type :mysql)
 
-    (:test
-     :adapter :mysql
-     :encoding "utf-8"
-     :host "localhost"
-     :database "blog_test"
-     :username "root"
-     :password "")
+ (:test
+  :connection-spec ("localhost" "blog_test" "root" "")
+  :database-type :mysql)
 
-    (:production
-     :adapter :mysql
-     :encoding "utf-8"
-     :host "localhost"
-     :database "blog_prodution"
-     :username "root"
-     :password "")))
+ (:production
+  :connection-spec ("localhost" "blog_production" "root" "")
+  :database-type :mysql))

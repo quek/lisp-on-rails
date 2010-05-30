@@ -5,7 +5,13 @@
     <title>ブログ</title>
   </head>
   <body>
-    <h1>パッケージリスト</h1>
+    <%= (slot-value *controller* 'message) %>
+    <h2>Posts</h2>
+    <ul>
+      <%= #"""~{<li>#,(mapcar #'content-of
+                        (slot-value *controller* 'posts))</li>~&~}""" %>
+    </ul>
+    <h2>パッケージリスト</h2>
     <ul>
       <% (loop for i in (list-all-packages) do %>
       <li><%= (package-name i) %></li><% ) %>

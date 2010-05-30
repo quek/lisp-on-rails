@@ -17,3 +17,4 @@
          asdf:*central-registry* :test #'equal)
 
 (require :blog)
+(setf action-controller:*app-package* (find-package :blog))

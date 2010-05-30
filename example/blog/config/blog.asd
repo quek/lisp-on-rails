@@ -9,7 +9,8 @@
                                      (:file "routes")))
                (:module "../app/models"
                         :serial t
-                        :components ())
+                        :components ((:file "post")
+                                     (:file "comment")))
                (:module "../app/controllers"
                         :serial t
                         :components ((:file "application-controller")

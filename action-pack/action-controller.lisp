@@ -1,5 +1,6 @@
 (in-package :action-controller)
 
+
 (defclass base ()
   ((performed-render-p :initform nil :accessor performed-render-p)
    (performed-redirect-p :initform nil :accessor performed-redirect-p)
@@ -28,7 +29,8 @@
     (declare (ignore args))
     (let ((fname (view-fname controller)))
       (action-view::load-html fname (view-path controller))
-      (funcall fname))))
+      (let ((*controller* controller))
+        (funcall fname)))))
 
 (defgeneric controller-name-of (controller)
   (:method ((controller base))
@@ -57,4 +59,4 @@
   (:method ((controller base))
     (let ((controller-name (controller-name-of controller))
           (action-name (action-name-of controller)))
-      (intern #"""views/#,controller-name,/#,action-name"""))))
+      (intern #"""views/#,controller-name,/#,action-name""" *app-package*))))
