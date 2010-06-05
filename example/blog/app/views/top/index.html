@@ -8,7 +8,7 @@
     <h1><%= @message %></h1>
     <h2>投稿を loop で表示する</h2>
     <ul><% (loop for post in @posts for comments = (comments-of post) do %>
-      <li><%= (content-of post) %></li>
+      <li><%= (content-of post) %> -- <%= (name-of post) %></li>
       <% if comments do %>
       <ul><% (loop for comment in comments do %>
         <li><%= (body-of comment) %> -- <%= (commenter-of comment) %></li><% ) %>

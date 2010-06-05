@@ -27,15 +27,5 @@
 (defmethod dispatch ((dispatcher dispatcher) &key controller (action "INDEX"))
   (let ((class (intern #"""#,controller,-CONTROLLER""" *app-package*))
         (method (intern action *app-package*)))
-    (clsql-sys:with-database (clsql-sys:*default-database*
-                              active-record::*connection-spec*
-                              :make-default t
-                              :pool t
-                              :encoding :utf-8)
-      ;; TODO ↓ どっかちゃんとした場所で  ↑ もどうかな？
-      (mapc #'clsql-sys:execute-command
-          '("set character_set_client='utf8'"
-            "set character_set_connection='utf8'"
-            "set character_set_results='utf8'"))
-      (perform-action (make-instance class) method))
-    (lack:finish *response*)))
+    (perform-action (make-instance class) method))
+  (lack:finish *response*))

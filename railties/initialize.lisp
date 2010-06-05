@@ -25,3 +25,17 @@
     (setf active-record:*connection-spec* (getf spec :connection-spec)
           clsql-sys:*default-database-type* (getf spec :database-type))
     (active-record:establish-connection)))
+
+
+(defmethod action-controller::dispatch (dispatcher &rest args)
+   (clsql-sys:with-database (clsql-sys:*default-database*
+                             active-record::*connection-spec*
+                             :make-default t
+                             :pool t
+                             :encoding :utf-8)
+     ;; TODO ↓ どっかちゃんとした場所で  ↑ もどうかな？
+     (mapc #'clsql-sys:execute-command
+           '("set character_set_client='utf8'"
+             "set character_set_connection='utf8'"
+             "set character_set_results='utf8'"))
+     (call-next-method)))
