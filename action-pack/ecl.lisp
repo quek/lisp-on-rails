@@ -5,11 +5,13 @@
     (set-dispatch-macro-character #\# #\" 'quek::|#"-reader|)
     *readtable*))
 
-(defun <%?-readtable ()
-  (let ((*readtable* (basic-readtable)))
-    (set-macro-character #\= '<%=-reader)
-    (set-macro-character #\# '<%#-reader)
-    (set-macro-character #\% '%>-reader)
+(defun <%?-readtable (stream)
+  (let ((*readtable* (basic-readtable))
+        (char (peek-char nil stream t t t)))
+    (case char
+      (#\= (set-macro-character char '<%=-reader))
+      (#\# (set-macro-character char '<%#-reader))
+      (t   (set-macro-character #\% '%>-reader)))
     *readtable*))
 
 (defun <%=-reader (stream char)
@@ -52,8 +54,6 @@
         (setf *readtable* (basic-readtable))
         (read stream t t t))))
 
-(defparameter *<%?-readtable* (<%?-readtable))
-
 
 (defun char-reader (stream char)
   (unread-char char stream)
@@ -62,8 +62,8 @@
                  while c
                  if (and (char= #\< c)
                          (char= #\% (peek-char nil stream nil nil t)))
-                   do (setf *readtable*  *<%?-readtable*)
-                      (read-char stream) ; %
+                   do (read-char stream) ; %
+                      (setf *readtable* (<%?-readtable stream))
                       (loop-finish)
                  else
                    do (write-char c out)))))
