@@ -5,16 +5,15 @@
     <title>ブログ</title>
   </head>
   <body>
-    <%= (slot-value *controller* 'message) %>
+    <h1><%= @message %></h1>
     <h2>Posts</h2>
     <ul>
-      <%= #"""~{<li>#,(mapcar #'content-of
-                        (slot-value *controller* 'posts))</li>~&~}""" %>
+      <%= #"""~{<li>#,(mapcar #'content-of @posts)</li>~&~}""" %>
     </ul>
-    <h2>パッケージリスト</h2>
+    <h2>loop で</h2>
     <ul>
-      <% (loop for i in (list-all-packages) do %>
-      <li><%= (package-name i) %></li><% ) %>
+      <% (loop for i in @posts do %>
+      <li><%= (content-of i) %></li><% ) %>
     </ul>
     <p>おしまい</p>
   </body>

@@ -95,11 +95,29 @@
                 (setf in-package nil)
                 `(in-package ,(package-name action-controller:*app-package*)))
               `(defun ,fname ()
-                 ,@(let ((*readtable* (make-html-readtable char)))
-                     (loop for x = (read stream nil stream t)
-                           until (eq x stream)
-                           collect x))))))))
+                 ,(body-code stream char)))))))
     *readtable*))
+
+(defun body-code (stream char)
+  (walk-body-code (read-body-code stream char)))
+
+(defun read-body-code (stream char)
+  (let ((*readtable* (make-html-readtable char)))
+    (loop for x = (read stream nil stream t)
+          until (eq x stream)
+          collect x)))
+
+(defun walk-body-code (code)
+  `(symbol-macrolet
+       ,(series:collect
+            (series:mapping
+             ((x (series:choose-if (q:^ q:symbol-head-p _ "@")
+                                   (series:scan-lists-of-lists-fringe code))))
+             `(,x (slot-value action-controller:*controller*
+                              ',(intern (subseq (symbol-name x) 1)
+                                        action-controller:*app-package*)))))
+     ,@code))
+
 
 (defun first-char (pathspec)
   (with-open-file (in pathspec)

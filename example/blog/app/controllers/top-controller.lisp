@@ -6,5 +6,5 @@
 
 (defmethod index ((self top-controller))
   (with-slots (message posts) self
-    (setf message "Hello")
-    (setf posts (all post))))
+    (setf message "まみむめも♪"
+          posts (all post))))
